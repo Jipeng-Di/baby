@@ -4,7 +4,7 @@
 
 ## 已部署环境
 
-正式站点：<https://baby-feeding-blush.vercel.app>。生产数据库使用 Supabase 项目 `baby's app`，初始 migration 已应用。Vercel 项目为 `juliev42s-projects/baby-feeding`，通过 CLI 直接部署；`vercel.json` 固定 Next.js 框架预设。当前仓库还没有 GitHub remote，后续可连接 Git 集成实现自动部署。
+生产数据库使用 Supabase 项目 `baby's app`，初始 migration 已应用。Vercel 目标项目待切换到用户的个人工作区。`vercel.json` 固定 Next.js 框架预设。当前仓库还没有 GitHub remote，后续可连接 Git 集成实现自动部署。
 
 ## 本地运行
 
@@ -36,7 +36,7 @@
 
 1. 推送仓库到 GitHub，并在 Vercel 导入该仓库。
 2. 在 Vercel Project Settings → Environment Variables 中添加上面两个 `NEXT_PUBLIC_` 变量，应用到 Production（以及需要的 Preview）。
-3. 部署。仓库的 `vercel.json` 明确指定 Next.js 框架预设，避免新建项目误用 `Other` 与 `public/` 输出目录。已关联本地项目也可运行 `vercel deploy --prod --scope juliev42s-projects`。
+3. 部署。先确认 Vercel CLI 已切换到个人工作区，再关联目标项目并运行 `vercel deploy --prod`。仓库的 `vercel.json` 明确指定 Next.js 框架预设，避免新建项目误用 `Other` 与 `public/` 输出目录。
 4. 在 Supabase Authentication → URL Configuration 中将 Site URL 设为正式 Vercel 域名，Redirect URLs 加入 `https://YOUR_DOMAIN/auth` 和 `https://YOUR_DOMAIN/reset-password`。如使用 Preview 域名，也加入对应地址。
 5. 测试注册、邮件验证、登录、重置密码、家庭邀请与记录。
 6. 用 iPhone Safari 打开 HTTPS 网站，点击“分享” →“添加到主屏幕”。桌面图标打开后应为 standalone 窗口。Android Chrome 可通过安装菜单添加。
