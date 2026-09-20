@@ -36,6 +36,7 @@ for(const [table,id] of [['families',familyA],['babies',allie.id],['feedings',(a
  assert.equal((await must(c.from(table).select('id').eq('id',id))).length,0,`${table} SELECT leaked`);
 }
 assert.equal((await must(c.from('family_members').select('id').eq('family_id',familyA))).length,0);
+assert.equal((await must(c.from('profiles').select('id').eq('id',ua.id))).length,0);
 assert.ok((await c.from('babies').insert({family_id:familyA,name:'Intruder',birthday})).error,'Foreign baby INSERT should fail');
 assert.equal((await must(c.from('babies').update({name:'Changed'}).eq('id',allie.id).select())).length,0);
 
