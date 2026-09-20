@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:rls": "node tests/rls.mjs"
+    "test:rls": "node tests/rls.mjs",
+    "test:anon": "node --env-file=.env.local tests/anon.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",

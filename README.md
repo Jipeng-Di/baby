@@ -2,6 +2,10 @@
 
 移动端优先的 Next.js PWA。支持多宝宝、家庭共享、快速记录、历史修改与删除、7/30 天趋势。数据直接通过 Supabase Auth 和 PostgreSQL RLS 隔离；浏览器只持有公开的 anon/publishable key。
 
+## 已部署环境
+
+正式站点：<https://baby-feeding-blush.vercel.app>。生产数据库使用 Supabase 项目 `baby's app`，初始 migration 已应用。Vercel 项目为 `juliev42s-projects/baby-feeding`，通过 CLI 直接部署；`vercel.json` 固定 Next.js 框架预设。当前仓库还没有 GitHub remote，后续可连接 Git 集成实现自动部署。
+
 ## 本地运行
 
 需要 Node.js 20.9+。
@@ -32,7 +36,7 @@
 
 1. 推送仓库到 GitHub，并在 Vercel 导入该仓库。
 2. 在 Vercel Project Settings → Environment Variables 中添加上面两个 `NEXT_PUBLIC_` 变量，应用到 Production（以及需要的 Preview）。
-3. 部署。Vercel 默认识别 Next.js，无需额外构建配置；免费套餐可运行。
+3. 部署。仓库的 `vercel.json` 明确指定 Next.js 框架预设，避免新建项目误用 `Other` 与 `public/` 输出目录。已关联本地项目也可运行 `vercel deploy --prod --scope juliev42s-projects`。
 4. 在 Supabase Authentication → URL Configuration 中将 Site URL 设为正式 Vercel 域名，Redirect URLs 加入 `https://YOUR_DOMAIN/auth` 和 `https://YOUR_DOMAIN/reset-password`。如使用 Preview 域名，也加入对应地址。
 5. 测试注册、邮件验证、登录、重置密码、家庭邀请与记录。
 6. 用 iPhone Safari 打开 HTTPS 网站，点击“分享” →“添加到主屏幕”。桌面图标打开后应为 standalone 窗口。Android Chrome 可通过安装菜单添加。
@@ -43,10 +47,11 @@
 
 - `npm run typecheck`
 - `npm run build`
+- `npm run test:anon`：使用 `.env.local` 的公开 key 直接验证六张表和创建家庭 RPC 拒绝匿名访问。
 - 在三个**已验证邮箱**的测试账号 A、B、C 和一次性 Supabase 测试项目上运行直接访问数据库的集成测试：设置 `TEST_USER_A_EMAIL`、`TEST_USER_A_PASSWORD`、B/C 对应变量以及上述两个 Supabase 环境变量，然后运行 `npm run test:rls`。测试会创建家庭、宝宝、邀请和喝奶数据，不会自动清理；请使用一次性项目。
 - 手工检查 iPhone 尺寸：注册 → 家庭 → Allie/Billie → +90 → 保存 → 修改为 100 → 删除 → 家人通过链接加入 → 家人记录 Billie → 刷新原账号 → 查看趋势、历史与主屏幕安装。
 
-没有提供 Supabase 项目凭据时，仓库可以完成构建，但线上注册和数据库/RLS 集成测试必须在你的 Supabase 项目配置好后执行。
+已在生产项目使用事务内的 A/B/C 临时身份直接验证跨家庭读取、写入拒绝、邀请加入和共享更新；测试事务已回滚，复查测试家庭、宝宝和记录数量均为 0。实际邮箱注册、邮件验证和 iPhone 主屏幕安装仍需由真实用户设备完成。
 
 ## 结构
 
