@@ -10,4 +10,6 @@ for(const table of ['profiles','families','family_members','babies','feedings','
 }
 const {error}=await db.rpc('create_family',{family_name:'Unauthorized'});
 assert.ok(error,'Anonymous family creation unexpectedly succeeded');
-console.log('Anonymous access checks passed for all seven tables and create_family RPC.');
+const {data:avatars,error:avatarError}=await db.storage.from('baby-avatars').list();
+assert.ok(avatarError||!avatars?.length,'Anonymous access exposed baby avatars');
+console.log('Anonymous access checks passed for all seven tables, private avatars, and create_family RPC.');
