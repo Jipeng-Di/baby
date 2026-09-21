@@ -9,6 +9,7 @@ const ROW=64;
 const two=(n:number)=>String(n).padStart(2,'0');
 const range=(start:number,end:number)=>Array.from({length:end-start+1},(_,i)=>start+i);
 const daysInMonth=(year:number,month:number)=>new Date(year,month,0).getDate();
+const snapToFive=(parts:Parts):Parts=>({...parts,minute:Math.floor(parts.minute/5)*5});
 
 function parse(value:string):Parts{
  const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
@@ -43,14 +44,14 @@ export default function DateTimeWheel({value,onChange}:{value:string;onChange:(v
  const years=useMemo(()=>range(2000,new Date().getFullYear()),[]);
  const months=useMemo(()=>range(1,12),[]);
  const hours=useMemo(()=>range(0,23),[]);
- const minutes=useMemo(()=>range(0,59),[]);
+ const minutes=useMemo(()=>range(0,11).map(n=>n*5),[]);
  const days=useMemo(()=>range(1,daysInMonth(draft.year,draft.month)),[draft.year,draft.month]);
  const shown=parse(value);
  const chosenTime=new Date(serialize(draft)).getTime();
  const timeValid=Number.isFinite(chosenTime)&&chosenTime<=Date.now()+5*60000&&chosenTime>=new Date('2000-01-01').getTime();
  function change(field:Field,n:number){setDraft(current=>{const next={...current,[field]:n};next.day=Math.min(next.day,daysInMonth(next.year,next.month));return next;});}
- function show(){setDraft(parse(value));setTab('time');setOpen(true);}
- function now(){const d=new Date();setDraft({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),hour:d.getHours(),minute:d.getMinutes()});}
+ function show(){setDraft(snapToFive(parse(value)));setTab('time');setOpen(true);}
+ function now(){const d=new Date();setDraft(snapToFive({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),hour:d.getHours(),minute:d.getMinutes()}));}
  return <>
   <button type="button" className="mt-2 flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#dce5df] bg-white px-4 text-left text-[17px] text-[#18312b]" onClick={show} aria-label="选择喝奶日期和时间"><CalendarDays size={22} className="shrink-0 text-[#13795b]"/><span className="flex-1">{shown.year}年{shown.month}月{shown.day}日 <strong className="ml-1 text-xl">{two(shown.hour)}:{two(shown.minute)}</strong></span><span className="text-sm text-[#13795b]">修改</span></button>
   {open&&<div className="fixed inset-0 z-40 flex items-end justify-center bg-[#10231b]/50" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false);}}>
