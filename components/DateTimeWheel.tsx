@@ -38,7 +38,7 @@ function WheelColumn({label,values,value,onChange,suffix}:{label:string;values:n
 
 export default function DateTimeWheel({value,onChange}:{value:string;onChange:(value:string)=>void}){
  const [open,setOpen]=useState(false);
- const [tab,setTab]=useState<'date'|'time'>('date');
+ const [tab,setTab]=useState<'date'|'time'>('time');
  const [draft,setDraft]=useState<Parts>(()=>parse(value));
  const years=useMemo(()=>range(2000,new Date().getFullYear()),[]);
  const months=useMemo(()=>range(1,12),[]);
@@ -49,7 +49,7 @@ export default function DateTimeWheel({value,onChange}:{value:string;onChange:(v
  const chosenTime=new Date(serialize(draft)).getTime();
  const timeValid=Number.isFinite(chosenTime)&&chosenTime<=Date.now()+5*60000&&chosenTime>=new Date('2000-01-01').getTime();
  function change(field:Field,n:number){setDraft(current=>{const next={...current,[field]:n};next.day=Math.min(next.day,daysInMonth(next.year,next.month));return next;});}
- function show(){setDraft(parse(value));setTab('date');setOpen(true);}
+ function show(){setDraft(parse(value));setTab('time');setOpen(true);}
  function now(){const d=new Date();setDraft({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),hour:d.getHours(),minute:d.getMinutes()});}
  return <>
   <button type="button" className="mt-2 flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#dce5df] bg-white px-4 text-left text-[17px] text-[#18312b]" onClick={show} aria-label="选择喝奶日期和时间"><CalendarDays size={22} className="shrink-0 text-[#13795b]"/><span className="flex-1">{shown.year}年{shown.month}月{shown.day}日 <strong className="ml-1 text-xl">{two(shown.hour)}:{two(shown.minute)}</strong></span><span className="text-sm text-[#13795b]">修改</span></button>
