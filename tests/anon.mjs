@@ -4,10 +4,10 @@ const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 if(!url||!key)throw new Error('Missing public Supabase configuration');
 const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-for(const table of ['profiles','families','family_members','babies','feedings','family_invites']){
+for(const table of ['profiles','families','family_members','babies','feedings','growth_measurements','family_invites']){
  const {data,error}=await db.from(table).select('*').limit(1);
  assert.ok(error||!data?.length,`Anonymous access exposed ${table}`);
 }
 const {error}=await db.rpc('create_family',{family_name:'Unauthorized'});
 assert.ok(error,'Anonymous family creation unexpectedly succeeded');
-console.log('Anonymous access checks passed for all six tables and create_family RPC.');
+console.log('Anonymous access checks passed for all seven tables and create_family RPC.');
