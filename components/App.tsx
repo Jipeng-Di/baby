@@ -45,7 +45,7 @@ export default function App({page,inviteCode}:{page:Page;inviteCode?:string}){
  async function removeBaby(baby:Baby){const hasRecords=feedings.some(f=>f.baby_id===baby.id);if(!window.confirm(hasRecords?`“${babyName(baby)}”有喝奶记录。确定移出宝宝列表？历史记录会保留。`:`确定移出“${babyName(baby)}”？`))return;await action(async()=>{const {error:e}=await supabase().from('babies').update({is_active:false}).eq('id',baby.id).eq('family_id',familyId);if(e)throw e;await loadData();setSuccess('宝宝已移出，历史记录已保留。');});}
  async function createInvite(){await action(async()=>{const {data,error:e}=await supabase().rpc('create_family_invite',{fid:familyId});if(e)throw e;setInvite(`${window.location.origin}/join/${data}`);});}
  async function joinFamily(){if(!inviteCode)return;await action(async()=>{const {error:e}=await supabase().rpc('join_family',{invite_token:inviteCode});if(e)throw e;await loadFamilies();router.replace('/today');});}
- async function signOut(){await supabase().auth.signOut();router.replace('/auth');}
+ async function signOut(){const {error:e}=await supabase().auth.signOut({scope:'local'});if(e){showError(e);return;}router.replace('/auth');}
  const today=localDay();const todayStart=today.getTime();const nextDay=new Date(today);nextDay.setDate(nextDay.getDate()+1);const tomorrow=nextDay.getTime();const todayFeedings=feedings.filter(f=>{const t=new Date(f.fed_at).getTime();return t>=todayStart&&t<tomorrow;});
  const title=page==='today'?'今天':page==='history'?'历史记录':page==='trends'?'奶量趋势':page==='family'?'家庭':'奶记';
  if(!ready)return <main className="mx-auto flex min-h-screen max-w-lg items-center justify-center text-[#62776d]">正在加载…</main>;
