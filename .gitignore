@@ -7,3 +7,4 @@ node_modules
 .DS_Store
 export_narababy_*.csv
 .narababy_*.csv
+narababy_*_import.csv
