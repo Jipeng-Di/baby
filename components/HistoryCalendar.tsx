@@ -19,14 +19,15 @@ export default function HistoryCalendar({babies,feedings,onSelect}:Props){
  const [month,setMonth]=useState(()=>monthKey(new Date()));
  const [selectedDate,setSelectedDate]=useState(today);
  const currentMonth=today.slice(0,7);
+ const selectedBabyId=babyId&&babies.some(baby=>baby.id===babyId)?babyId:(babies.find(baby=>baby.is_active)?.id??babies[0]?.id??'');
  const babyById=useMemo(()=>new Map(babies.map(baby=>[baby.id,baby])),[babies]);
- const filtered=useMemo(()=>babyId?feedings.filter(item=>item.baby_id===babyId):feedings,[feedings,babyId]);
+ const filtered=useMemo(()=>selectedBabyId?feedings.filter(item=>item.baby_id===selectedBabyId):[],[feedings,selectedBabyId]);
  const daily=useMemo(()=>{const result=new Map<string,{total:number;count:number;hasAmount:boolean}>();for(const item of filtered){const key=dayKey(new Date(item.fed_at));const current=result.get(key)??{total:0,count:0,hasAmount:false};current.count+=1;if(item.amount_ml!==null){current.total+=item.amount_ml;current.hasAmount=true;}result.set(key,current);}return result;},[filtered]);
  const selectedRows=useMemo(()=>filtered.filter(item=>dayKey(new Date(item.fed_at))===selectedDate).sort((a,b)=>new Date(b.fed_at).getTime()-new Date(a.fed_at).getTime()),[filtered,selectedDate]);
  const calendar=useMemo(()=>{const[year,monthNumber]=month.split('-').map(Number);const first=new Date(year,monthNumber-1,1);const count=new Date(year,monthNumber,0).getDate();return{year,monthNumber,offset:first.getDay(),days:Array.from({length:count},(_,index)=>`${month}-${String(index+1).padStart(2,'0')}`)};},[month]);
  function changeMonth(offset:number){const next=moveMonth(month,offset);const key=monthKey(next);setMonth(key);setSelectedDate(key===currentMonth?today:`${key}-01`);}
  return <>
-  <label className="block text-sm font-medium">宝宝<select className={`${input} mt-2`} value={babyId} onChange={event=>setBabyId(event.target.value)}><option value="">所有宝宝</option>{babies.map(baby=><option key={baby.id} value={baby.id}>{babyName(baby)}{baby.is_active?'':'（已移出）'}</option>)}</select></label>
+  <label className="block text-sm font-medium">选择宝宝<select className={`${input} mt-2`} value={selectedBabyId} disabled={babies.length===0} onChange={event=>setBabyId(event.target.value)}>{babies.length===0&&<option value="">暂无宝宝</option>}{babies.map(baby=><option key={baby.id} value={baby.id}>{babyName(baby)}{baby.is_active?'':'（已移出）'}</option>)}</select></label>
   <section className="rounded-[28px] border border-[#d5e0d8] bg-white p-3 shadow-[0_10px_32px_rgba(31,67,52,.065)]">
    <div className="flex items-center justify-between px-1 py-2"><button type="button" className="flex h-11 w-11 items-center justify-center rounded-full border border-[#dce5df] text-[#13795b]" aria-label="上个月" onClick={()=>changeMonth(-1)}><ChevronLeft size={20}/></button><h2 className="text-lg font-semibold">{calendar.year}年{calendar.monthNumber}月</h2><button type="button" disabled={month>=currentMonth} className="flex h-11 w-11 items-center justify-center rounded-full border border-[#dce5df] text-[#13795b] disabled:cursor-not-allowed disabled:opacity-30" aria-label="下个月" onClick={()=>changeMonth(1)}><ChevronRight size={20}/></button></div>
    <div className="mt-2 grid grid-cols-7 text-center text-xs font-semibold text-[#789087]">{weekdays.map(day=><div className="py-2" key={day}>周{day}</div>)}</div>
