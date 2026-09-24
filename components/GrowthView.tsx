@@ -7,9 +7,9 @@ import {babyName} from '@/lib/types';
 import {ageInMonths,percentileLabel,weightPercentile,whoGrowthRows} from '@/lib/who-growth';
 import {dayKey} from '@/lib/dates';
 
-const input='w-full rounded-2xl border border-[#dce5df] bg-white px-4 py-3.5 text-[16px] text-[#18312b] outline-none focus:border-[#13795b]';
-const card='rounded-[26px] border border-[#e3eae5] bg-white p-5 shadow-[0_4px_24px_rgba(22,54,42,.04)]';
-const primary='flex min-h-13 w-full items-center justify-center rounded-2xl bg-[#13795b] px-5 py-3 font-semibold text-white disabled:opacity-50';
+const input='w-full rounded-2xl border border-[#d2ded5] bg-white/90 px-4 py-3.5 text-[16px] text-[#18312b] shadow-[0_2px_8px_rgba(22,54,42,.035)] outline-none transition focus:border-[#4f977d] focus:ring-4 focus:ring-[#dcece3]';
+const card='rounded-[28px] border border-white/90 bg-white/88 p-5 shadow-[0_12px_35px_rgba(28,64,49,.075)] backdrop-blur-xl';
+const primary='flex min-h-13 w-full items-center justify-center rounded-2xl bg-gradient-to-br from-[#218b6b] to-[#10664e] px-5 py-3 font-semibold text-white shadow-[0_9px_22px_rgba(19,121,91,.2)] disabled:opacity-50';
 const sexLabels:Record<BabySex,string>={female:'女孩',male:'男孩'};
 type Props={babies:Baby[];measurements:GrowthMeasurement[];busy:boolean;onAdd:(baby:Baby,weight:string,date:string,note:string)=>Promise<boolean>;onDelete:(item:GrowthMeasurement)=>Promise<void>;onSetSex:(baby:Baby,sex:BabySex)=>Promise<void>};
 type GrowthPoint={month:number;weight:number;date:string;percentile:number|null;note:string|null};

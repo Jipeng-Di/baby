@@ -1,8 +1,21 @@
 @import "tailwindcss";
 :root { color-scheme: light; }
-body { background:#f5f7f5; color:#18312b; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif; overscroll-behavior-y:contain; }
+html { background:#eaf0eb; }
+body {
+  background:
+    radial-gradient(circle at 12% 4%,rgba(105,168,139,.15),transparent 28rem),
+    radial-gradient(circle at 92% 28%,rgba(235,185,133,.12),transparent 24rem),
+    #eef3ef;
+  color:#18312b;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+  overscroll-behavior-y:contain;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+}
+::selection { background:#cfe7da; color:#123c30; }
 button,input,select,textarea { font-family:inherit; }
 button { cursor:pointer; }
+button { -webkit-tap-highlight-color:transparent; }
 button:disabled { cursor:not-allowed; opacity:.55; }
 :focus-visible { outline:3px solid #13795b; outline-offset:2px; }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
