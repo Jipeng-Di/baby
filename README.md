@@ -4,7 +4,7 @@
 
 ## 已部署环境
 
-正式站点：<https://baby-feeding-blush.vercel.app>。生产数据库使用 Supabase 项目 `baby's app`，初始 migration 已应用。Vercel 项目为 `juliev42s-projects/baby-feeding`，已连接 GitHub 仓库 `Jipeng-Di/baby` 的 `main` 分支，推送后自动部署。项目设置和 `vercel.json` 均指定 Next.js 框架。
+正式站点：<https://baby-feeding-blush.vercel.app>。生产数据库使用 Supabase 项目 `baby's app`。Vercel 项目为 `juliev42s-projects/baby-feeding`，已连接 GitHub 仓库 `Jipeng-Di/baby` 的 `main` 分支，推送后自动部署。项目设置和 `vercel.json` 均指定 Next.js 框架。
 
 ## 本地运行
 
@@ -12,7 +12,7 @@
 
 1. `npm install`
 2. 创建 Supabase Project（免费套餐即可）。
-3. 在 Supabase Dashboard → SQL Editor 中运行 `supabase/migrations/202609200001_initial.sql` 的全部内容。可先在测试项目运行，再应用到正式项目。
+3. 在 Supabase Dashboard → SQL Editor 中按文件名顺序运行 `supabase/migrations/` 中的 migration。可先在测试项目运行，再应用到正式项目。
 4. 在 Project Settings → API 获取 Project URL 和 publishable/anon key。复制 `.env.example` 为 `.env.local` 并填写：
 
    ```env
@@ -28,7 +28,9 @@
 
 ## 使用
 
-注册并登录 → 创建家庭 → 在“家庭”添加宝宝 → 在“今天”点 `+60/+90/+120` → 检查类型和时间 → 保存。设备会按宝宝记住上次选择的奶类型。同一个已验证账号可在多台设备同时登录并共享数据；退出登录只结束当前设备会话。家庭页生成 7 天有效的邀请链接；其他用户注册/登录后打开链接即可加入。加入者可查看、添加、编辑和删除该家庭记录。
+注册并登录 → 创建家庭或输入 10 位唯一家庭编码加入已有家庭 → 在“家庭”添加宝宝 → 在“今天”点快捷奶量 → 检查类型和时间 → 保存。每个账号只绑定一个家庭；家庭页可复制永久家庭编码，其他成员注册后输入编码即可共享数据。设备会按宝宝记住上次选择的奶类型。同一个已验证账号可在多台设备同时登录并共享数据；退出登录只结束当前设备会话。家庭成员可查看、添加、编辑和删除该家庭记录。
+
+同一家庭的多台设备通过 Supabase Realtime 实时同步：需运行 `202611130002_realtime.sql`，把 `feedings`、`babies`、`growth_measurements`、`family_members` 加入 `supabase_realtime` publication（Realtime 沿用 RLS，只推送本家庭数据）。App 回到前台或断线重连时会自动补拉一次。首屏只加载最近 60 天的喝奶记录，历史页翻到更早月份时再按需加载。家庭页可导出 CSV 备份。界面跟随系统自动切换深色模式。
 
 宝宝“移出”采用软删除，历史记录保留。今日和趋势基于浏览器本地日期计算；数据库保存 UTC 时间。日期跨夏令时时也按本地日历日归类。趋势是描述性统计，不提供医疗建议。
 
@@ -41,7 +43,7 @@
 5. 测试注册、邮件验证、登录、重置密码、家庭邀请与记录。
 6. 用 iPhone Safari 打开 HTTPS 网站，点击“分享” →“添加到主屏幕”。桌面图标打开后应为 standalone 窗口。Android Chrome 可通过安装菜单添加。
 
-可将 Vercel 自定义域名设为稳定的邀请链接地址。不要在浏览器使用 Service Role Key。
+可将 Vercel 自定义域名设为稳定的访问地址。不要在浏览器使用 Service Role Key。
 
 ## 验证
 
