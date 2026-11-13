@@ -2,12 +2,14 @@
 import {useEffect,useRef,useState} from 'react';
 import {ChevronDown,ChevronRight,Plus} from 'lucide-react';
 import BabyAvatar from './BabyAvatar';
+import WeatherCard from './WeatherCard';
 import {babyAge,localDay,timeLabel} from '@/lib/dates';
 import {babyName,type Baby,type Feeding,typeLabels} from '@/lib/types';
 
 // After this long without a feeding, the "since last feeding" counter turns to the alert color.
 const LONG_GAP_MINUTES=180;
-const CARD_GAP=12;
+// Matches the carousel's px-5 / scroll-px-5 inset.
+const EDGE=20;
 const ACTIVE_KEY='today-active-baby';
 const fmt=(n:number)=>new Intl.NumberFormat('zh-CN').format(n);
 
@@ -29,7 +31,6 @@ function gapSince(item:Feeding|undefined,now:number):Gap|null{
  const minutes=Math.max(0,Math.floor((now-new Date(item.fed_at).getTime())/60000));
  return {minutes,hours:Math.floor(minutes/60),rest:minutes%60,long:minutes>=LONG_GAP_MINUTES};
 }
-const compactGap=(gap:Gap)=>gap.hours?`${gap.hours}小时${gap.rest}分前`:`${gap.minutes}分钟前`;
 
 export default function TodayView({babies,feedings,avatarUrls,now,recorderName,onStartFeed,onEditFeed,onAddBaby}:Props){
  const [expanded,setExpanded]=useState<string[]>([]);
@@ -44,13 +45,19 @@ export default function TodayView({babies,feedings,avatarUrls,now,recorderName,o
  const lastByBaby=new Map<string,Feeding>();
  for(const item of feedings)if(!lastByBaby.has(item.baby_id))lastByBaby.set(item.baby_id,item);
 
- function step(){const first=scroller.current?.firstElementChild as HTMLElement|null|undefined;return first?first.offsetWidth+CARD_GAP:0;}
+ // Scroll offset at which slide `index` is snapped: earlier slides align to the start, the last slide to the end.
+ function snapLeft(index:number){
+  const el=scroller.current;const slide=el?.children[index] as HTMLElement|undefined;if(!el||!slide)return 0;
+  const left=index===babies.length-1?slide.offsetLeft+slide.offsetWidth+EDGE-el.clientWidth:slide.offsetLeft-EDGE;
+  return Math.max(0,Math.min(el.scrollWidth-el.clientWidth,left));
+ }
  function remember(index:number){try{localStorage.setItem(ACTIVE_KEY,babies[index].id);}catch{}}
- function scrollToIndex(index:number,behavior:ScrollBehavior='smooth'){const el=scroller.current;const size=step();if(el&&size)el.scrollTo({left:index*size,behavior});}
- function select(index:number){setActive(index);remember(index);scrollToIndex(index);}
+ function scrollToIndex(index:number,behavior:ScrollBehavior='smooth'){scroller.current?.scrollTo({left:snapLeft(index),behavior});}
+ function select(index:number){setActive(index);remember(index);if(multi)scrollToIndex(index);}
  function onScroll(){
-  const el=scroller.current;const size=step();if(!el||!size)return;
-  const index=Math.max(0,Math.min(babies.length-1,Math.round(el.scrollLeft/size)));
+  const el=scroller.current;if(!el)return;
+  let index=0;let best=Infinity;
+  babies.forEach((_,i)=>{const distance=Math.abs(snapLeft(i)-el.scrollLeft);if(distance<best){best=distance;index=i;}});
   if(index!==active){setActive(index);remember(index);}
  }
  // Reopen on the baby the user last looked at.
@@ -100,16 +107,17 @@ export default function TodayView({babies,feedings,avatarUrls,now,recorderName,o
  }
 
  return <>
-  <div className="relative overflow-hidden rounded-[28px] border border-(--rim)/90 bg-gradient-to-br from-(--brand-pale) via-(--surface-2) to-(--warm-pale) px-5 py-5 shadow-[0_14px_34px_rgba(31,67,52,.08)]"><span className="absolute -right-5 -top-8 h-24 w-24 rounded-full bg-(--surface)/50"/><p className="relative text-sm font-medium text-(--muted)">{new Date(now).toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'})}</p><h2 className="relative mt-1 text-[22px] font-semibold tracking-tight">今天喝得怎么样</h2></div>
+  <WeatherCard now={now}/>
   {babies.length===0?<div className="ui-card py-9 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-(--brand-pale) text-(--brand)"><Plus/></div><p className="mt-4 text-(--muted)">添加宝宝后即可开始记录</p><button className="mt-4 min-h-12 px-5 font-semibold text-(--brand)" onClick={onAddBaby}>添加宝宝 →</button></div>
-  :!multi?renderCard(babies[0],0)
   :<div>
-   <div className="no-scrollbar flex gap-2 overflow-x-auto" role="tablist" aria-label="切换宝宝">{babies.map((baby,i)=>{const gap=gapSince(lastByBaby.get(baby.id),now);const selected=i===current;return <button key={baby.id} type="button" role="tab" aria-selected={selected} aria-controls={`baby-slide-${baby.id}`} className={`flex min-h-14 min-w-[30%] flex-1 flex-col justify-center rounded-2xl border px-3 py-2 text-left transition active:scale-[.98] ${selected?'border-(--brand) bg-(--brand-pale) shadow-[0_3px_12px_rgba(19,121,91,.1)]':'border-(--line) bg-(--surface)/70'}`} onClick={()=>select(i)}><span className={`block truncate text-sm font-semibold ${selected?'text-(--brand)':'text-(--ink)'}`}>{babyName(baby)}</span><span className={`block truncate text-xs ${gap?.long?'font-semibold text-(--alert)':'text-(--soft)'}`}>{gap?compactGap(gap):'暂无记录'}</span></button>;})}</div>
-   <div ref={scroller} onScroll={onScroll} className="no-scrollbar -mx-5 mt-3 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto overscroll-x-contain scroll-px-5 px-5 pb-6 pt-1" aria-roledescription="carousel" aria-label="宝宝卡片，左右滑动切换">
-    {babies.map((baby,i)=><div key={baby.id} id={`baby-slide-${baby.id}`} role="tabpanel" aria-roledescription="slide" aria-label={`${babyName(baby)}，第 ${i+1} 个，共 ${babies.length} 个`} className="w-full shrink-0 snap-start snap-always">{renderCard(baby,i)}</div>)}
-    <div aria-hidden className="w-2 shrink-0"/>
-   </div>
-   <div className="-mt-3 flex justify-center gap-1.5" aria-hidden>{babies.map((baby,i)=><span key={baby.id} className={`h-1.5 rounded-full transition-all ${i===current?'w-5 bg-(--brand)':'w-1.5 bg-(--faint)/60'}`}/>)}</div>
+   <div className="no-scrollbar flex gap-2 overflow-x-auto" role="tablist" aria-label="切换宝宝">{babies.map((baby,i)=>{const selected=i===current;return <button key={baby.id} type="button" role="tab" aria-selected={selected} aria-controls={`baby-slide-${baby.id}`} className={`flex min-h-[76px] flex-1 items-center gap-3 rounded-[22px] border px-3.5 py-3 text-left transition active:scale-[.98] ${babies.length>2?'min-w-[46%]':'min-w-0'} ${selected?'border-(--brand) bg-(--brand-pale) shadow-[0_4px_14px_rgba(19,121,91,.12)]':'border-(--line) bg-(--surface)/70'}`} onClick={()=>select(i)}><BabyAvatar baby={baby} url={avatarUrls[baby.id]} tone={i%2?'warm':'green'} small onTint={selected}/><span className="min-w-0"><span className={`block truncate text-[17px] font-semibold ${selected?'text-(--brand)':'text-(--ink)'}`}>{babyName(baby)}</span><span className="block truncate text-[13px] text-(--muted)">{babyAge(baby.birthday)}</span></span></button>;})}</div>
+   {!multi?<div className="mt-3">{renderCard(babies[0],0)}</div>:<>
+    <div ref={scroller} onScroll={onScroll} className="no-scrollbar relative -mx-5 mt-3 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto overscroll-x-contain scroll-px-5 px-5 pb-6 pt-1" aria-roledescription="carousel" aria-label="宝宝卡片，左右滑动切换">
+     {babies.map((baby,i)=><div key={baby.id} id={`baby-slide-${baby.id}`} role="tabpanel" aria-roledescription="slide" aria-label={`${babyName(baby)}，第 ${i+1} 个，共 ${babies.length} 个`} className={`w-[calc(100%-28px)] shrink-0 snap-always ${i===babies.length-1?'snap-end':'snap-start'}`}>{renderCard(baby,i)}</div>)}
+     <div aria-hidden className="w-2 shrink-0"/>
+    </div>
+    <div className="-mt-3 flex justify-center gap-1.5" aria-hidden>{babies.map((baby,i)=><span key={baby.id} className={`h-1.5 rounded-full transition-all ${i===current?'w-5 bg-(--brand)':'w-1.5 bg-(--faint)/60'}`}/>)}</div>
+   </>}
   </div>}
  </>;
 }
