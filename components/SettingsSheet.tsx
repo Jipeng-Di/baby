@@ -1,10 +1,95 @@
 'use client';
-import {Check,Languages,Milk,X} from 'lucide-react';
-import {languages,setLang,tr,useLang} from '@/lib/i18n';
-import {setUnit,useUnit,volumeUnits} from '@/lib/units';
+import {Check, Languages, Milk, X} from 'lucide-react';
+import {languages, setLang, tr, useLang} from '@/lib/i18n';
+import {setUnit, useUnit, volumeUnits} from '@/lib/units';
 
 /** Per-device preferences: language and volume unit. */
-export default function SettingsSheet({onClose}:{onClose:()=>void}){
- const lang=useLang();const unit=useUnit();
- return <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#10231b]/40" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}><div role="dialog" aria-modal="true" aria-label={tr('设置','Settings')} className="ui-sheet safe-bottom max-h-[94dvh] w-full max-w-lg overflow-y-auto p-5"><div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-(--line)"/><div className="flex items-center justify-between"><h2 className="text-2xl font-semibold">{tr('设置','Settings')}</h2><button className="flex h-11 w-11 items-center justify-center rounded-full bg-(--chip)" aria-label={tr('关闭','Close')} onClick={()=>onClose()}><X size={20}/></button></div><fieldset className="mt-6"><legend className="mb-3 flex items-center gap-2 text-sm font-semibold text-(--muted)"><Languages size={16}/>{tr('语言','Language')}</legend><div className="overflow-hidden rounded-2xl border border-(--line) bg-(--surface)">{languages.map(option=><button key={option.value} type="button" role="radio" aria-checked={lang===option.value} className="flex min-h-14 w-full items-center justify-between border-b border-(--line) px-4 text-left font-medium last:border-0" onClick={()=>setLang(option.value)}><span>{option.label}</span>{lang===option.value&&<Check size={20} className="text-(--brand)"/>}</button>)}</div><p className="mt-2 text-xs text-(--soft)">{tr('只对这台设备生效，家人可以各自选择语言。','Applies to this device only. Each family member can choose their own.')}</p></fieldset><fieldset className="mt-6"><legend className="mb-3 flex items-center gap-2 text-sm font-semibold text-(--muted)"><Milk size={16}/>{tr('奶量单位','Volume unit')}</legend><div className="overflow-hidden rounded-2xl border border-(--line) bg-(--surface)">{volumeUnits.map(option=><button key={option.value} type="button" role="radio" aria-checked={unit===option.value} className="flex min-h-14 w-full items-center justify-between border-b border-(--line) px-4 text-left font-medium last:border-0" onClick={()=>setUnit(option.value)}><span>{option.value==='ml'?tr('毫升 (ml)','Millilitres (ml)'):tr('盎司 (oz)','Ounces (oz)')}</span>{unit===option.value&&<Check size={20} className="text-(--brand)"/>}</button>)}</div><p className="mt-2 text-xs text-(--soft)">{tr('只影响这台设备的显示和输入，记录统一按 ml 保存，1 oz ≈ 29.6 ml。','Changes display and input on this device only. Records are stored in ml; 1 oz ≈ 29.6 ml.')}</p></fieldset></div></div>;
+export default function SettingsSheet({onClose}: {onClose: () => void}) {
+  const lang = useLang();
+  const unit = useUnit();
+  return (
+    <div
+      className="fixed inset-0 z-30 flex items-end justify-center bg-[#10231b]/40"
+      onMouseDown={e => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={tr('设置', 'Settings')}
+        className="ui-sheet safe-bottom max-h-[94dvh] w-full max-w-lg overflow-y-auto p-5"
+      >
+        <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-(--line)" />
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-semibold">{tr('设置', 'Settings')}</h2>
+          <button
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-(--chip)"
+            aria-label={tr('关闭', 'Close')}
+            onClick={() => onClose()}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <fieldset className="mt-6">
+          <legend className="mb-3 flex items-center gap-2 text-sm font-semibold text-(--muted)">
+            <Languages size={16} />
+            {tr('语言', 'Language')}
+          </legend>
+          <div className="overflow-hidden rounded-2xl border border-(--line) bg-(--surface)">
+            {languages.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={lang === option.value}
+                className="flex min-h-14 w-full items-center justify-between border-b border-(--line) px-4 text-left font-medium last:border-0"
+                onClick={() => setLang(option.value)}
+              >
+                <span>{option.label}</span>
+                {lang === option.value && <Check size={20} className="text-(--brand)" />}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-(--soft)">
+            {tr(
+              '只对这台设备生效，家人可以各自选择语言。',
+              'Applies to this device only. Each family member can choose their own.',
+            )}
+          </p>
+        </fieldset>
+        <fieldset className="mt-6">
+          <legend className="mb-3 flex items-center gap-2 text-sm font-semibold text-(--muted)">
+            <Milk size={16} />
+            {tr('奶量单位', 'Volume unit')}
+          </legend>
+          <div className="overflow-hidden rounded-2xl border border-(--line) bg-(--surface)">
+            {volumeUnits.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={unit === option.value}
+                className="flex min-h-14 w-full items-center justify-between border-b border-(--line) px-4 text-left font-medium last:border-0"
+                onClick={() => setUnit(option.value)}
+              >
+                <span>
+                  {option.value === 'ml'
+                    ? tr('毫升 (ml)', 'Millilitres (ml)')
+                    : tr('盎司 (oz)', 'Ounces (oz)')}
+                </span>
+                {unit === option.value && <Check size={20} className="text-(--brand)" />}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-(--soft)">
+            {tr(
+              '只影响这台设备的显示和输入，记录统一按 ml 保存，1 oz ≈ 29.6 ml。',
+              'Changes display and input on this device only. Records are stored in ml; 1 oz ≈ 29.6 ml.',
+            )}
+          </p>
+        </fieldset>
+      </div>
+    </div>
+  );
 }

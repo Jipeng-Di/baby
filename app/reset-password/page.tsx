@@ -1,2 +1,4 @@
 import App from '@/components/App';
-export default function Page(){return <App page="reset-password"/>;}
+export default function Page() {
+  return <App page="reset-password" />;
+}
