@@ -1,3 +1,4 @@
+import {tr} from './i18n';
 export type BabySex = 'female' | 'male';
 export type GrowthStandardRow = readonly [month:number,l:number,m:number,s:number,p3:number,p15:number,p50:number,p85:number,p97:number];
 
@@ -22,10 +23,11 @@ const headStandards: Record<BabySex, readonly GrowthStandardRow[]> = {
 
 
 export type GrowthMetric='weight'|'length'|'head';
+// Getters so labels follow the current language each time they are read.
 export const metricInfo:Record<GrowthMetric,{label:string;unit:string;title:string}>={
- weight:{label:'体重',unit:'kg',title:'体重年龄百分位'},
- length:{label:'身长',unit:'cm',title:'身长/身高年龄百分位'},
- head:{label:'头围',unit:'cm',title:'头围年龄百分位'},
+ weight:{get label(){return tr('体重','Weight');},unit:'kg',get title(){return tr('体重年龄百分位','Weight-for-age percentile');}},
+ length:{get label(){return tr('身长','Length');},unit:'cm',get title(){return tr('身长/身高年龄百分位','Length/height-for-age percentile');}},
+ head:{get label(){return tr('头围','Head');},unit:'cm',get title(){return tr('头围年龄百分位','Head circumference-for-age percentile');}},
 };
 const standards:Record<GrowthMetric,Record<BabySex,readonly GrowthStandardRow[]>>={weight:weightStandards,length:lengthStandards,head:headStandards};
 
@@ -47,7 +49,7 @@ export function growthAge(birthday:string,measuredAt:string,gestationalDays?:num
  if(!needsCorrection(gestationalDays)||months>=CORRECT_UNTIL_MONTHS)return {months,corrected:false};
  return {months:months-(TERM_DAYS-gestationalDays!)/DAYS_PER_MONTH,corrected:true};
 }
-export const gestationLabel=(days:number)=>`${Math.floor(days/7)}+${days%7} 周`;
+export const gestationLabel=(days:number)=>tr(`${Math.floor(days/7)}+${days%7} 周`,`${Math.floor(days/7)}+${days%7} wk`);
 
 function erf(x:number){const sign=x<0?-1:1;const a=Math.abs(x);const t=1/(1+.3275911*a);const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-a*a);return sign*y;}
 function normalCdf(z:number){return .5*(1+erf(z/Math.SQRT2));}
@@ -83,7 +85,7 @@ export function percentileDrift(metric:GrowthMetric,points:{months:number;z:numb
  if(!window.length)return null;
  const now=band(latest.z);
  const high=window.reduce((a,b)=>band(b.z)>band(a.z)?b:a);
- const label=(z:number)=>{const b=band(z);return b===0?'P3 以下':b===5?'P97 以上':`${MAJOR_LABELS[b-1]}–${MAJOR_LABELS[b]}`;};
+ const label=(z:number)=>{const b=band(z);return b===0?tr('P3 以下','below P3'):b===5?tr('P97 以上','above P97'):`${MAJOR_LABELS[b-1]}–${MAJOR_LABELS[b]}`;};
  if(band(high.z)-now>=2)return {metric,direction:'down',from:label(high.z),to:label(latest.z),fromDate:high.date,toDate:latest.date};
  if(metric==='head'){
   const low=window.reduce((a,b)=>band(b.z)<band(a.z)?b:a);

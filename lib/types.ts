@@ -5,5 +5,7 @@ export type Baby = {id:string;family_id:string;name:string;nickname:string|null;
 export type Feeding = {id:string;baby_id:string;family_id:string;created_by:string;amount_ml:number|null;feeding_type:FeedingType;fed_at:string;note:string|null;created_at:string;updated_at:string};
 export type GrowthMeasurement = {id:string;baby_id:string;family_id:string;recorded_by:string;weight_kg:number|null;length_cm:number|null;head_cm:number|null;measured_at:string;note:string|null;created_at:string;updated_at:string};
 export type Member = {id:string;user_id:string;role:'owner'|'member';display_name?:string|null};
-export const typeLabels: Record<FeedingType,string> = {formula:'配方奶',breast_milk:'母乳',mixed:'混合'};
+import {tr} from './i18n';
+// Getters so the label follows the current language each time it is read.
+export const typeLabels: Record<FeedingType,string> = {get formula(){return tr('配方奶','Formula');},get breast_milk(){return tr('母乳','Breast milk');},get mixed(){return tr('混合','Mixed');}};
 export const babyName=(b:Baby)=>b.nickname?.trim()||b.name;
