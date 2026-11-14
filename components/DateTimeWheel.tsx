@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useMemo,useRef,useState} from 'react';
+import {validTime} from '@/lib/feedings';
 import {CalendarDays,Clock3,X} from 'lucide-react';
 import {locale,tr} from '@/lib/i18n';
 
@@ -49,8 +50,7 @@ export default function DateTimeWheel({value,onChange}:{value:string;onChange:(v
  const minutes=useMemo(()=>range(0,11).map(n=>n*5),[]);
  const days=useMemo(()=>range(1,daysInMonth(draft.year,draft.month)),[draft.year,draft.month]);
  const shown=parse(value);
- const chosenTime=new Date(serialize(draft)).getTime();
- const timeValid=Number.isFinite(chosenTime)&&chosenTime<=Date.now()+5*60000&&chosenTime>=new Date('2000-01-01').getTime();
+ const timeValid=validTime(serialize(draft));
  function change(field:Field,n:number){setDraft(current=>{const next={...current,[field]:n};next.day=Math.min(next.day,daysInMonth(next.year,next.month));return next;});}
  function show(){setDraft(snapToFive(parse(value)));setTab('time');setOpen(true);}
  function now(){const d=new Date();setDraft(snapToFive({year:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),hour:d.getHours(),minute:d.getMinutes()}));}

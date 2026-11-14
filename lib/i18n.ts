@@ -10,7 +10,7 @@ const listeners=new Set<()=>void>();
 
 function apply(next:Lang){
  lang=next;
- document.documentElement.lang=next==='en'?'en':'zh-CN';
+ if(typeof document!=='undefined')document.documentElement.lang=next==='en'?'en':'zh-CN';
  listeners.forEach(listener=>listener());
 }
 export function setLang(next:Lang){try{localStorage.setItem(KEY,next);}catch{}apply(next);}
