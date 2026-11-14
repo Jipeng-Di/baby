@@ -176,7 +176,7 @@ input::placeholder,textarea::placeholder { color:var(--faint); }
   backdrop-filter:blur(24px);
 }
 .page-kicker { color:var(--brand); font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
-.page-title { margin-top:3px; font-size:28px; font-weight:750; letter-spacing:-.035em; line-height:1.18; }
+.page-title { margin-top:4px; font-size:26px; font-weight:750; letter-spacing:-.035em; line-height:1.18; }
 .page-subtitle { margin-top:7px; color:var(--muted); font-size:14px; line-height:1.65; }
 
 .safe-bottom { padding-bottom:env(safe-area-inset-bottom); }
