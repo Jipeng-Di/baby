@@ -36,6 +36,8 @@
 
 母乳可以按亲喂时长（分钟）记录（`202611150001_feeding_duration.sql`），录入时可在分钟与奶量之间切换。设置里可选奶量单位 ml / oz（只影响本机显示和输入，数据库统一存 ml）。“记录”页合并了历史和趋势。
 
+没有网络时保存的喝奶记录会先存在本机（`lib/outbox.ts`），首页显示“有 N 条记录还没同步”，联网、回到前台或每 30 秒自动补传；新记录的 id 在客户端生成，重复补传不会产生重复记录。删除需要联网。
+
 宝宝“移出”采用软删除，历史记录保留。今日和趋势基于浏览器本地日期计算；数据库保存 UTC 时间。日期跨夏令时时也按本地日历日归类。趋势是描述性统计，不提供医疗建议。
 
 ## 部署到 Vercel
@@ -51,8 +53,10 @@
 
 ## 验证
 
-- `npm run typecheck`
+- `npm run check`：类型检查 + ESLint + 单元测试（`tests/unit/`，覆盖月龄、WHO 百分位与偏离提醒、ml/oz 换算、快捷奶量、表单校验、离线队列、CSV）。
 - `npm run build`
+- `npm run screens`：登录后各页面的浅色/深色截图（需在 `.env.local` 设置 `TEST_EMAIL`、`TEST_PASSWORD`，并先 `npm run dev`）。加 `SCREENS_OFFLINE=1` 会额外验证离线记录在联网后自动同步（会在测试账号的家庭里写入并删除一条记录）。
+- `npm run format`：Prettier 格式化。
 - `npm run test:anon`：使用 `.env.local` 的公开 key 直接验证六张表和创建家庭 RPC 拒绝匿名访问。
 - 在三个**已验证邮箱**的测试账号 A、B、C 和一次性 Supabase 测试项目上运行直接访问数据库的集成测试：设置 `TEST_USER_A_EMAIL`、`TEST_USER_A_PASSWORD`、B/C 对应变量以及上述两个 Supabase 环境变量，然后运行 `npm run test:rls`。测试会创建家庭、宝宝、邀请和喝奶数据，不会自动清理；请使用一次性项目。
 - 手工检查 iPhone 尺寸：注册 → 家庭 → Allie/Billie → +90 → 保存 → 修改为 100 → 删除 → 家人通过链接加入 → 家人记录 Billie → 刷新原账号 → 查看趋势、历史与主屏幕安装。
@@ -61,4 +65,4 @@
 
 ## 结构
 
-`app/` App Router 页面；`components/App.tsx` 移动端界面和操作；`lib/` 类型、时间和 Supabase 客户端；`supabase/migrations/` 数据库迁移；`tests/rls.mjs` 跨家庭权限集成测试；`public/` PWA manifest 与图标。
+`app/` App Router 页面；`components/App.tsx` 数据加载、实时同步、离线队列和页面切换，各页面与弹窗在 `components/` 下独立成文件（`TodayView`、`HistoryCalendar`、`TrendView`、`GrowthView`、`FamilyPage`、`FeedSheet`、`SettingsSheet`、`Onboarding`、`AuthViews`）；`lib/` 纯逻辑（类型、时间、单位、表单校验、离线队列、WHO 生长标准）和 Supabase 客户端；`supabase/migrations/` 数据库迁移；`tests/rls.mjs` 跨家庭权限集成测试；`tests/unit/` 单元测试；`tests/screens.mjs` 登录后截图；`public/` PWA manifest 与图标。

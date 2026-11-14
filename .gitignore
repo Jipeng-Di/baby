@@ -8,3 +8,4 @@ node_modules
 export_narababy_*.csv
 .narababy_*.csv
 narababy_*_import.csv
+/screens

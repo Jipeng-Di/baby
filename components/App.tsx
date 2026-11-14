@@ -6,6 +6,7 @@ import {
   ArrowDown,
   CalendarDays,
   ChartNoAxesCombined,
+  CloudOff,
   House,
   LayoutDashboard,
   LoaderCircle,
@@ -30,6 +31,17 @@ import {toDisplay, useUnit} from '@/lib/units';
 import {getError} from '@/lib/errors';
 import {byNewest, fetchFeedings, parseFeedForm, time, windowStart, type FeedForm} from '@/lib/feedings';
 import {parseBabyForm, type BabyForm} from '@/lib/baby-form';
+import {
+  enqueue,
+  isNetworkError,
+  mergePending,
+  opsFor,
+  pendingRow,
+  readOutbox,
+  removeOp,
+  writeOutbox,
+  type OutboxOp,
+} from '@/lib/outbox';
 import GrowthView, {type GrowthValues} from './GrowthView';
 import AvatarCropper from './AvatarCropper';
 import HistoryCalendar from './HistoryCalendar';
@@ -78,6 +90,8 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   const pullDistanceRef = useRef(0);
   const [range, setRange] = useState<7 | 30>(7);
   const [now, setNow] = useState(() => Date.now());
+  const [outbox, setOutbox] = useState<OutboxOp[]>([]);
+  const flushing = useRef(false);
   // Earliest fed_at currently held in `feedings`; null means the full history is loaded.
   const loadedSince = useRef<string | null>(null);
   const activeBabies = useMemo(() => babies.filter(b => b.is_active), [babies]);
@@ -223,15 +237,23 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     if (e) throw e;
     setMeasurements((data ?? []) as GrowthMeasurement[]);
   }, [familyId]);
+  // Queued offline changes for this user and family, re-read from storage so every caller sees the latest.
+  const pendingOps = useCallback(
+    () => (user && familyId ? opsFor(readOutbox(), user.id, familyId) : []),
+    [user, familyId],
+  );
   // Re-fetch the loaded window (keeps any older months the history page already pulled in).
   const refreshFeedings = useCallback(async () => {
     if (!familyId) return;
     const since = loadedSince.current;
     const rows = await fetchFeedings(familyId, since);
     setFeedings(list =>
-      [...(since ? list.filter(f => time(f.fed_at) < time(since)) : []), ...rows].sort(byNewest),
+      mergePending(
+        [...(since ? list.filter(f => time(f.fed_at) < time(since)) : []), ...rows],
+        pendingOps(),
+      ).sort(byNewest),
     );
-  }, [familyId]);
+  }, [familyId, pendingOps]);
   const loadData = useCallback(async () => {
     if (!familyId) return;
     setLoading(true);
@@ -244,14 +266,16 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         loadGrowth(),
       ]);
       loadedSince.current = since;
-      setFeedings(rows);
+      setFeedings(mergePending(rows, pendingOps()).sort(byNewest));
     } catch (e) {
+      // Offline at startup: still show what was logged on this phone while offline.
+      if (isNetworkError(e)) setFeedings(mergePending([], pendingOps()).sort(byNewest));
       showError(e);
     } finally {
       setLoading(false);
       setLoadedFamilyId(familyId);
     }
-  }, [familyId, loadBabies, loadMembers, loadGrowth]);
+  }, [familyId, loadBabies, loadMembers, loadGrowth, pendingOps]);
   const ensureFeedingsSince = useCallback(
     async (from: Date) => {
       const loaded = loadedSince.current;
@@ -277,6 +301,70 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   const refreshVisible = useCallback(async () => {
     await Promise.all([refreshFeedings(), loadGrowth()]);
   }, [refreshFeedings, loadGrowth]);
+
+  const queueOp = useCallback((op: OutboxOp) => {
+    const next = enqueue(readOutbox(), op);
+    writeOutbox(next);
+    setOutbox(next);
+  }, []);
+  const dequeue = useCallback((id: string) => {
+    const next = removeOp(readOutbox(), id);
+    writeOutbox(next);
+    setOutbox(next);
+  }, []);
+  // Replays queued offline changes in order; stops at the first network failure and tries again later.
+  const flushOutbox = useCallback(async () => {
+    if (flushing.current || !user || !familyId) return;
+    const ops = pendingOps();
+    if (!ops.length) return;
+    flushing.current = true;
+    try {
+      const sb = supabase();
+      for (const op of ops) {
+        const res =
+          op.kind === 'insert'
+            ? await sb
+                .from('feedings')
+                .insert({...op.payload, id: op.id, created_by: op.userId})
+                .select()
+                .single()
+            : await sb
+                .from('feedings')
+                .update(op.payload)
+                .eq('id', op.id)
+                .eq('family_id', op.payload.family_id)
+                .select()
+                .single();
+        if (res.error) {
+          if (isNetworkError(res.error)) break;
+          dequeue(op.id);
+          // 23505: this insert already reached the server on an earlier attempt.
+          if (res.error.code !== '23505')
+            setError(
+              tr(
+                `有一条离线记录无法同步（${getError(res.error)}），已跳过。`,
+                `An offline record couldn’t be synced (${getError(res.error)}) and was skipped.`,
+              ),
+            );
+          continue;
+        }
+        dequeue(op.id);
+        upsertFeeding(res.data as Feeding);
+      }
+    } finally {
+      flushing.current = false;
+    }
+  }, [user, familyId, pendingOps, dequeue, upsertFeeding]);
+  // Pick up anything queued in an earlier session once the family has loaded.
+  useEffect(() => {
+    setOutbox(readOutbox());
+    if (loadedFamilyId && loadedFamilyId === familyId) flushOutbox().catch(() => {});
+  }, [loadedFamilyId, familyId, flushOutbox]);
+  const pendingCount = user && familyId ? opsFor(outbox, user.id, familyId).length : 0;
+  // While something is queued, retry on each 30-second tick.
+  useEffect(() => {
+    if (pendingCount) flushOutbox().catch(() => {});
+  }, [now, pendingCount, flushOutbox]);
 
   useEffect(() => {
     if (user) {
@@ -378,7 +466,11 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         return;
       }
       tick();
-      if (familyId && Date.now() - hiddenAt > 30000) refreshVisible().catch(() => {});
+      // Send queued offline records first, so the refresh already includes them.
+      if (familyId && Date.now() - hiddenAt > 30000)
+        flushOutbox()
+          .catch(() => {})
+          .finally(() => refreshVisible().catch(() => {}));
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', onVisible);
@@ -387,7 +479,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', onVisible);
     };
-  }, [familyId, refreshVisible]);
+  }, [familyId, refreshVisible, flushOutbox]);
 
   useEffect(() => {
     if (!ready) return;
@@ -523,45 +615,79 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         fed_at,
         note,
       };
-      const sb = supabase();
-      const res = editing
-        ? await sb
-            .from('feedings')
-            .update(payload)
-            .eq('id', editing)
-            .eq('family_id', familyId)
-            .select()
-            .single()
-        : await sb
-            .from('feedings')
-            .insert({...payload, created_by: user.id})
-            .select()
-            .single();
-      if (res.error) throw res.error;
-      upsertFeeding(res.data as Feeding);
+      // New feedings get their id here so an offline save can be replayed later without duplicates.
+      const id = editing ?? crypto.randomUUID();
+      const op: OutboxOp = {
+        kind: editing ? 'update' : 'insert',
+        id,
+        userId: user.id,
+        payload,
+        queuedAt: new Date().toISOString(),
+      };
+      // Editing a feeding that is itself still queued: just update the queued copy.
+      const queuedAlready = pendingOps().some(o => o.id === id);
+      let offline = queuedAlready;
+      if (!queuedAlready) {
+        const sb = supabase();
+        const res = editing
+          ? await sb
+              .from('feedings')
+              .update(payload)
+              .eq('id', editing)
+              .eq('family_id', familyId)
+              .select()
+              .single()
+          : await sb
+              .from('feedings')
+              .insert({...payload, id, created_by: user.id})
+              .select()
+              .single();
+        if (res.error && !isNetworkError(res.error)) throw res.error;
+        if (res.error) offline = true;
+        else upsertFeeding(res.data as Feeding);
+      }
+      if (offline) {
+        queueOp(op);
+        const existing = feedings.find(f => f.id === id);
+        upsertFeeding(existing ? {...existing, ...payload} : pendingRow(op));
+      }
       try {
         localStorage.setItem(`feeding-type:${form.baby_id}`, form.feeding_type);
       } catch {}
       setForm(null);
       setEditing(null);
       setSuccess(
-        editing
-          ? tr('记录已更新。', 'Record updated.')
-          : amount === null && duration === null
-            ? tr('时间已记录，吃完后可以补充奶量。', 'Time saved. You can add the amount after the feed.')
-            : tr('记录已保存。', 'Record saved.'),
+        offline
+          ? tr(
+              '现在没有网络，记录已先存在这台手机上，联网后会自动同步。',
+              'You’re offline. The record is saved on this phone and will sync when you’re back online.',
+            )
+          : editing
+            ? tr('记录已更新。', 'Record updated.')
+            : amount === null && duration === null
+              ? tr('时间已记录，吃完后可以补充奶量。', 'Time saved. You can add the amount after the feed.')
+              : tr('记录已保存。', 'Record saved.'),
       );
     });
   }
   async function removeFeeding() {
     if (!deleteId) return;
     await action(async () => {
-      const {error: e} = await supabase()
-        .from('feedings')
-        .delete()
-        .eq('id', deleteId)
-        .eq('family_id', familyId);
-      if (e) throw e;
+      const queued = pendingOps().find(o => o.id === deleteId);
+      // A feeding that never reached the server only needs to leave the queue.
+      if (queued?.kind !== 'insert') {
+        const {error: e} = await supabase()
+          .from('feedings')
+          .delete()
+          .eq('id', deleteId)
+          .eq('family_id', familyId);
+        if (e && isNetworkError(e))
+          throw new Error(
+            tr('删除需要联网，请稍后再试。', 'Deleting needs a connection. Please try again later.'),
+          );
+        if (e) throw e;
+      }
+      if (queued) dequeue(deleteId);
       dropFeeding(deleteId);
       setDeleteId(null);
       setForm(null);
@@ -941,6 +1067,18 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
             {error && <Alert text={error} />} {success && <Alert text={success} good />}
             {loading && !refreshing && (
               <p className="text-sm text-(--muted)">{tr('正在同步…', 'Syncing…')}</p>
+            )}
+            {pendingCount > 0 && (
+              <p
+                role="status"
+                className="flex items-center gap-2 rounded-2xl border border-(--warm-line) bg-(--warm-pale) px-4 py-3 text-sm text-(--warm-ink)"
+              >
+                <CloudOff size={18} className="shrink-0" />
+                {tr(
+                  `有 ${pendingCount} 条记录还没同步，联网后会自动上传。`,
+                  `${pendingCount} record${pendingCount > 1 ? 's' : ''} waiting to sync. They’ll upload when you’re back online.`,
+                )}
+              </p>
             )}
             {page === 'today' && (
               <TodayView

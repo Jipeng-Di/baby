@@ -1,6 +1,17 @@
 'use client';
 import {useState} from 'react';
-import {Camera, ChevronDown, ChevronRight, Download, House, LogOut, Plus, Settings} from 'lucide-react';
+import {
+  Camera,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  House,
+  LogOut,
+  Pencil,
+  Plus,
+  Settings,
+  UserMinus,
+} from 'lucide-react';
 import {babyName, type Baby, type Family, type Member} from '@/lib/types';
 import {dayKey} from '@/lib/dates';
 import {languages, tr, useLang} from '@/lib/i18n';
@@ -122,7 +133,27 @@ export default function FamilyPage({
           )}
           {activeBabies.map(b => (
             <div key={b.id} className="flex items-center gap-3 border-b border-(--line) py-3 last:border-0">
-              <BabyAvatar baby={b} url={avatarUrls[b.id]} small />
+              <label
+                className="relative shrink-0 cursor-pointer"
+                aria-label={tr(`上传或更换 ${babyName(b)} 的头像`, `Upload or change ${babyName(b)}’s photo`)}
+                title={tr('更换头像', 'Change photo')}
+              >
+                <BabyAvatar baby={b} url={avatarUrls[b.id]} small />
+                <span className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-(--brand-solid) text-white ring-2 ring-(--surface)">
+                  <Camera size={11} />
+                </span>
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={busy}
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) chooseAvatar(b, file);
+                  }}
+                />
+              </label>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{babyName(b)}</p>
                 <p className="text-xs text-(--soft)">
@@ -137,36 +168,25 @@ export default function FamilyPage({
                     : ''}
                 </p>
               </div>
-              <label
-                className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-(--brand)"
-                aria-label={tr(`上传或更换 ${babyName(b)} 的头像`, `Upload or change ${babyName(b)}’s photo`)}
-                title={tr('更换头像', 'Change photo')}
-              >
-                <Camera size={19} />
-                <input
-                  className="sr-only"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={busy}
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (file) chooseAvatar(b, file);
-                  }}
-                />
-              </label>
               <button
-                className="min-h-11 px-1 text-sm text-(--brand)"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-(--brand)"
+                aria-label={tr(`编辑 ${babyName(b)}`, `Edit ${babyName(b)}`)}
+                title={tr('编辑', 'Edit')}
                 onClick={() => {
                   setBabyEdit(b);
                   setBabyForm(babyToForm(b));
                   setBabyFormOpen(true);
                 }}
               >
-                {tr('编辑', 'Edit')}
+                <Pencil size={18} />
               </button>
-              <button className="min-h-11 px-2 text-sm text-(--danger)" onClick={() => removeBaby(b)}>
-                {tr('移出', 'Remove')}
+              <button
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-(--danger)"
+                aria-label={tr(`移出 ${babyName(b)}`, `Remove ${babyName(b)}`)}
+                title={tr('移出', 'Remove')}
+                onClick={() => removeBaby(b)}
+              >
+                <UserMinus size={18} />
               </button>
             </div>
           ))}

@@ -62,15 +62,13 @@ assert.ok(
 );
 assert.equal((await must(b.from('babies').select('id').eq('family_id', familyA))).length, 2);
 await must(
-  b
-    .from('feedings')
-    .insert({
-      family_id: familyA,
-      baby_id: billie.id,
-      created_by: ub.id,
-      amount_ml: 120,
-      feeding_type: 'formula',
-    }),
+  b.from('feedings').insert({
+    family_id: familyA,
+    baby_id: billie.id,
+    created_by: ub.id,
+    amount_ml: 120,
+    feeding_type: 'formula',
+  }),
 );
 assert.equal((await must(a.from('feedings').select('id').eq('baby_id', billie.id))).length, 1);
 for (const [table, id] of [
@@ -89,15 +87,13 @@ assert.ok(
 assert.equal((await must(c.from('babies').update({name: 'Changed'}).eq('id', allie.id).select())).length, 0);
 
 assert.equal((await must(c.from('family_invites').select('id').eq('family_id', familyA))).length, 0);
-const forbiddenInsert = await c
-  .from('feedings')
-  .insert({
-    family_id: familyA,
-    baby_id: allie.id,
-    created_by: (await c.auth.getUser()).data.user.id,
-    amount_ml: 90,
-    feeding_type: 'formula',
-  });
+const forbiddenInsert = await c.from('feedings').insert({
+  family_id: familyA,
+  baby_id: allie.id,
+  created_by: (await c.auth.getUser()).data.user.id,
+  amount_ml: 90,
+  feeding_type: 'formula',
+});
 assert.ok(forbiddenInsert.error, 'Foreign feeding INSERT should fail');
 const foreignFeeding = (await must(a.from('feedings').select('id').eq('baby_id', billie.id)))[0];
 assert.equal(
@@ -105,14 +101,12 @@ assert.equal(
   0,
 );
 assert.equal((await must(c.from('feedings').delete().eq('id', foreignFeeding.id).select())).length, 0);
-const move = await a
-  .from('feedings')
-  .insert({
-    family_id: familyC,
-    baby_id: foreignBaby.id,
-    created_by: ua.id,
-    amount_ml: 90,
-    feeding_type: 'formula',
-  });
+const move = await a.from('feedings').insert({
+  family_id: familyC,
+  baby_id: foreignBaby.id,
+  created_by: ua.id,
+  amount_ml: 90,
+  feeding_type: 'formula',
+});
 assert.ok(move.error, 'A should not insert into C family');
 console.log('RLS integration checks passed: CRUD, sharing, and cross-family SELECT/INSERT/UPDATE/DELETE.');
