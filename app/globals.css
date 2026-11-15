@@ -27,6 +27,10 @@
   --warm-ink: #8d593f;
   --alert: #c2571f;
   --alert-pale: #fff1e6;
+  --sky: #2f74a8;
+  --sky-pale: #e8f2fa;
+  --plum: #7357b0;
+  --plum-pale: #f1edfa;
   --card-bg: rgba(255, 253, 249, 0.9);
   --card-rim: rgba(255, 255, 255, 0.9);
   --input-bg: rgba(255, 255, 255, 0.88);
@@ -66,6 +70,10 @@
     --warm-ink: #ecbc98;
     --alert: #f4a76a;
     --alert-pale: #3a2a1c;
+    --sky: #84bde6;
+    --sky-pale: #1b2e3c;
+    --plum: #bba7ee;
+    --plum-pale: #2a2440;
     --card-bg: rgba(26, 36, 32, 0.92);
     --card-rim: rgba(255, 255, 255, 0.06);
     --input-bg: #1f2a26;

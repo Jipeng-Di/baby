@@ -36,6 +36,7 @@ type Props = {
   onSaveBaby: (form: BabyForm, editing: Baby | null) => Promise<boolean>;
   exportFeedings: () => void;
   exportGrowth: () => void;
+  exportMoments: () => void;
   signOut: () => void;
   openSettings: () => void;
 };
@@ -55,6 +56,7 @@ export default function FamilyPage({
   onSaveBaby,
   exportFeedings,
   exportGrowth,
+  exportMoments,
   signOut,
   openSettings,
 }: Props) {
@@ -391,6 +393,14 @@ export default function FamilyPage({
           >
             <Download size={18} />
             {tr('生长记录', 'Growth records')}
+          </button>
+          <button
+            className="col-span-2 flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-(--line-strong) bg-(--surface)/75 font-semibold text-(--brand)"
+            disabled={busy}
+            onClick={exportMoments}
+          >
+            <Download size={18} />
+            {tr('成长时刻（里程碑、疫苗、体检）', 'Moments (milestones, vaccines, checkups)')}
           </button>
         </div>
       </details>

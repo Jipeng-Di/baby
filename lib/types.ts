@@ -53,3 +53,19 @@ export const typeLabels: Record<FeedingType, string> = {
   },
 };
 export const babyName = (b: Baby) => b.nickname?.trim() || b.name;
+export type MomentKind = 'milestone' | 'first' | 'vaccine' | 'checkup';
+/** A timeline entry: a milestone, a "first", a vaccine dose or a checkup. */
+export type Moment = {
+  id: string;
+  baby_id: string;
+  family_id: string;
+  recorded_by: string;
+  kind: MomentKind;
+  guide_key: string | null;
+  title: string;
+  occurred_on: string;
+  note: string | null;
+  photo_path: string | null;
+  created_at: string;
+  updated_at: string;
+};

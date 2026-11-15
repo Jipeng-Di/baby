@@ -1,12 +1,14 @@
 'use client';
-import {Check, Languages, Milk, X} from 'lucide-react';
+import {Check, Languages, Milk, Stethoscope, X} from 'lucide-react';
 import {languages, setLang, tr, useLang} from '@/lib/i18n';
 import {setUnit, useUnit, volumeUnits} from '@/lib/units';
+import {regions, setRegion, useRegion} from '@/lib/region';
 
-/** Per-device preferences: language and volume unit. */
+/** Per-device preferences: language, volume unit and health-guide region. */
 export default function SettingsSheet({onClose}: {onClose: () => void}) {
   const lang = useLang();
   const unit = useUnit();
+  const region = useRegion();
   return (
     <div
       className="fixed inset-0 z-30 flex items-end justify-center bg-[#10231b]/40"
@@ -86,6 +88,36 @@ export default function SettingsSheet({onClose}: {onClose: () => void}) {
             {tr(
               '只影响这台设备的显示和输入，记录统一按 ml 保存，1 oz ≈ 29.6 ml。',
               'Changes display and input on this device only. Records are stored in ml; 1 oz ≈ 29.6 ml.',
+            )}
+          </p>
+        </fieldset>
+        <fieldset className="mt-6">
+          <legend className="mb-3 flex items-center gap-2 text-sm font-semibold text-(--muted)">
+            <Stethoscope size={16} />
+            {tr('健康指南地区', 'Health guide region')}
+          </legend>
+          <div className="overflow-hidden rounded-2xl border border-(--line) bg-(--surface)">
+            {regions.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={region === option.value}
+                className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-(--line) px-4 py-2 text-left last:border-0"
+                onClick={() => setRegion(option.value)}
+              >
+                <span>
+                  <span className="block font-medium">{option.label()}</span>
+                  <span className="block text-xs text-(--muted)">{option.detail()}</span>
+                </span>
+                {region === option.value && <Check size={20} className="shrink-0 text-(--brand)" />}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-(--soft)">
+            {tr(
+              '决定成长时间线上显示哪个国家的疫苗和体检时间表。只对这台设备生效。',
+              'Sets which country’s vaccine and checkup schedule the growth timeline shows. Applies to this device only.',
             )}
           </p>
         </fieldset>

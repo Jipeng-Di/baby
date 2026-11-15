@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   Scale,
+  Sprout,
 } from 'lucide-react';
 import {supabase} from '@/lib/supabase';
 import {
@@ -22,6 +23,7 @@ import {
   type FeedingType,
   type GrowthMeasurement,
   type Member,
+  type Moment,
   typeLabels,
 } from '@/lib/types';
 import {datetimeLocal, dayKey} from '@/lib/dates';
@@ -42,7 +44,14 @@ import {
   writeOutbox,
   type OutboxOp,
 } from '@/lib/outbox';
+import {guideItem, say, type GuideItem} from '@/lib/guide';
+import {parseMomentForm} from '@/lib/timeline';
+import {compressPhoto} from '@/lib/image';
 import GrowthView, {type GrowthValues} from './GrowthView';
+import TimelineView from './TimelineView';
+import GuideSheet from './GuideSheet';
+import MomentSheet, {type MomentDraft} from './MomentSheet';
+import VisitSheet from './VisitSheet';
 import AvatarCropper from './AvatarCropper';
 import HistoryCalendar from './HistoryCalendar';
 import TodayView from './TodayView';
@@ -55,7 +64,16 @@ import {AuthView, ResetView} from './AuthViews';
 import {Alert, PageIntro, card, primary} from './ui';
 
 type Page =
-  'auth' | 'onboarding' | 'today' | 'history' | 'trends' | 'growth' | 'family' | 'join' | 'reset-password';
+  | 'auth'
+  | 'onboarding'
+  | 'today'
+  | 'history'
+  | 'trends'
+  | 'timeline'
+  | 'growth'
+  | 'family'
+  | 'join'
+  | 'reset-password';
 
 export default function App({page, inviteCode}: {page: Page; inviteCode?: string}) {
   // Subscribed only so every view re-renders when the language or volume unit changes.
@@ -73,6 +91,14 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   const [avatarUrls, setAvatarUrls] = useState<Record<string, string>>({});
   const [feedings, setFeedings] = useState<Feeding[]>([]);
   const [measurements, setMeasurements] = useState<GrowthMeasurement[]>([]);
+  const [moments, setMoments] = useState<Moment[]>([]);
+  // Signed URLs for moment photos, by storage path.
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  // True until the baby_moments migration has been run on this database.
+  const [momentsUnavailable, setMomentsUnavailable] = useState(false);
+  const [momentDraft, setMomentDraft] = useState<MomentDraft | null>(null);
+  const [guideBabyId, setGuideBabyId] = useState<string | null>(null);
+  const [visitDraft, setVisitDraft] = useState<{baby: Baby; items: GuideItem[]} | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -124,6 +150,11 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     [],
   );
   const dropGrowth = useCallback((id: string) => setMeasurements(list => list.filter(m => m.id !== id)), []);
+  const upsertMoment = useCallback(
+    (row: Moment) => setMoments(list => [...list.filter(m => m.id !== row.id), row]),
+    [],
+  );
+  const dropMoment = useCallback((id: string) => setMoments(list => list.filter(m => m.id !== id)), []);
 
   useEffect(() => {
     let live = true;
@@ -237,6 +268,23 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     if (e) throw e;
     setMeasurements((data ?? []) as GrowthMeasurement[]);
   }, [familyId]);
+  const loadMoments = useCallback(async () => {
+    if (!familyId) return;
+    const {data, error: e} = await supabase()
+      .from('baby_moments')
+      .select('*')
+      .eq('family_id', familyId)
+      .order('occurred_on', {ascending: false});
+    // The table doesn't exist until its migration runs; keep the rest of the app working meanwhile.
+    if (e && (e.code === '42P01' || e.code === 'PGRST205')) {
+      setMomentsUnavailable(true);
+      setMoments([]);
+      return;
+    }
+    if (e) throw e;
+    setMomentsUnavailable(false);
+    setMoments((data ?? []) as Moment[]);
+  }, [familyId]);
   // Queued offline changes for this user and family, re-read from storage so every caller sees the latest.
   const pendingOps = useCallback(
     () => (user && familyId ? opsFor(readOutbox(), user.id, familyId) : []),
@@ -264,6 +312,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         loadBabies(),
         loadMembers(),
         loadGrowth(),
+        loadMoments(),
       ]);
       loadedSince.current = since;
       setFeedings(mergePending(rows, pendingOps()).sort(byNewest));
@@ -275,7 +324,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setLoading(false);
       setLoadedFamilyId(familyId);
     }
-  }, [familyId, loadBabies, loadMembers, loadGrowth, pendingOps]);
+  }, [familyId, loadBabies, loadMembers, loadGrowth, loadMoments, pendingOps]);
   const ensureFeedingsSince = useCallback(
     async (from: Date) => {
       const loaded = loadedSince.current;
@@ -299,8 +348,8 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     [familyId],
   );
   const refreshVisible = useCallback(async () => {
-    await Promise.all([refreshFeedings(), loadGrowth()]);
-  }, [refreshFeedings, loadGrowth]);
+    await Promise.all([refreshFeedings(), loadGrowth(), loadMoments()]);
+  }, [refreshFeedings, loadGrowth, loadMoments]);
 
   const queueOp = useCallback((op: OutboxOp) => {
     const next = enqueue(readOutbox(), op);
@@ -385,6 +434,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setAvatarUrls({});
       setFeedings([]);
       setMeasurements([]);
+      setMoments([]);
       setLoadedFamilyId('');
     }
   }, [familyId, loadData]);
@@ -428,6 +478,19 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
           if (payload.old.id) dropGrowth(payload.old.id);
         },
       )
+      .on<Moment>(
+        'postgres_changes',
+        {event: 'INSERT', schema: 'public', table: 'baby_moments', filter},
+        payload => upsertMoment(payload.new),
+      )
+      .on<Moment>(
+        'postgres_changes',
+        {event: 'UPDATE', schema: 'public', table: 'baby_moments', filter},
+        payload => upsertMoment(payload.new),
+      )
+      .on<Moment>('postgres_changes', {event: 'DELETE', schema: 'public', table: 'baby_moments'}, payload => {
+        if (payload.old.id) dropMoment(payload.old.id);
+      })
       .on('postgres_changes', {event: '*', schema: 'public', table: 'babies', filter}, () => {
         loadBabies().catch(() => {});
       })
@@ -450,10 +513,32 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     dropFeeding,
     upsertGrowth,
     dropGrowth,
+    upsertMoment,
+    dropMoment,
     loadBabies,
     loadMembers,
     refreshVisible,
   ]);
+
+  // Sign any moment photos we don't have a URL for yet (signed URLs last an hour; reloads re-sign).
+  useEffect(() => {
+    const missing = moments.flatMap(m => (m.photo_path && !photoUrls[m.photo_path] ? [m.photo_path] : []));
+    if (!missing.length) return;
+    let live = true;
+    supabase()
+      .storage.from('baby-avatars')
+      .createSignedUrls(missing, 3600)
+      .then(({data}) => {
+        if (!live || !data) return;
+        const signed = data.flatMap(item =>
+          item.path && item.signedUrl ? [[item.path, item.signedUrl]] : [],
+        );
+        if (signed.length) setPhotoUrls(urls => ({...urls, ...Object.fromEntries(signed)}));
+      });
+    return () => {
+      live = false;
+    };
+  }, [moments, photoUrls]);
 
   // Keep "time since last feeding" current, and resync when the app returns to the foreground.
   useEffect(() => {
@@ -890,6 +975,180 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setSuccess(tr(`已导出 ${rows.length} 条生长记录。`, `Exported ${rows.length} growth records.`));
     });
   }
+  function openMoment(baby: Baby, item?: GuideItem) {
+    setError('');
+    setMomentDraft({
+      baby,
+      editing: null,
+      photo: null,
+      removePhoto: false,
+      form: {
+        kind: item ? (item.kind === 'vaccine' || item.kind === 'checkup' ? item.kind : 'milestone') : 'first',
+        guide_key: item?.key ?? null,
+        title: item ? say(item.title) : '',
+        occurred_on: dayKey(new Date()),
+        note: '',
+      },
+    });
+  }
+  function editMoment(m: Moment) {
+    const baby = babies.find(b => b.id === m.baby_id);
+    if (!baby) return;
+    setError('');
+    setMomentDraft({
+      baby,
+      editing: m,
+      photo: null,
+      removePhoto: false,
+      form: {
+        kind: m.kind,
+        guide_key: m.guide_key,
+        title: m.title,
+        occurred_on: m.occurred_on,
+        note: m.note ?? '',
+      },
+    });
+  }
+  function closeMomentDraft() {
+    if (momentDraft?.photo) URL.revokeObjectURL(momentDraft.photo.url);
+    setMomentDraft(null);
+    setError('');
+  }
+  async function saveMoment() {
+    if (!user || !momentDraft) return;
+    const draft = momentDraft;
+    const userId = user.id;
+    await action(async () => {
+      const parsed = parseMomentForm(draft.form, draft.baby.birthday, dayKey(new Date()));
+      const sb = supabase();
+      let uploaded: string | null = null;
+      if (draft.photo) {
+        const blob = await compressPhoto(draft.photo.file);
+        uploaded = `${familyId}/moments/${crypto.randomUUID()}.jpg`;
+        const {error: uploadError} = await sb.storage
+          .from('baby-avatars')
+          .upload(uploaded, blob, {contentType: 'image/jpeg', cacheControl: '3600'});
+        if (uploadError) throw uploadError;
+      }
+      const old = draft.editing?.photo_path ?? null;
+      const photoPath = uploaded ?? (draft.removePhoto ? null : old);
+      const payload = {...parsed, photo_path: photoPath};
+      const res = draft.editing
+        ? await sb
+            .from('baby_moments')
+            .update(payload)
+            .eq('id', draft.editing.id)
+            .eq('family_id', familyId)
+            .select()
+            .single()
+        : await sb
+            .from('baby_moments')
+            .insert({...payload, baby_id: draft.baby.id, family_id: familyId, recorded_by: userId})
+            .select()
+            .single();
+      if (res.error) {
+        if (uploaded) await sb.storage.from('baby-avatars').remove([uploaded]);
+        if (res.error.code === '23505')
+          throw new Error(
+            tr(
+              '这一项已经记录过了，可以在时间线上找到它。',
+              'This is already logged. You’ll find it on the timeline.',
+            ),
+          );
+        throw res.error;
+      }
+      if (old && old !== photoPath) await sb.storage.from('baby-avatars').remove([old]);
+      // Show the new photo straight away from the local copy.
+      if (uploaded && draft.photo) setPhotoUrls(urls => ({...urls, [uploaded]: draft.photo!.url}));
+      upsertMoment(res.data as Moment);
+      setMomentDraft(null);
+    });
+  }
+  async function saveVisit(date: string, items: GuideItem[]) {
+    if (!user || !visitDraft) return;
+    const {baby} = visitDraft;
+    const userId = user.id;
+    await action(async () => {
+      const rows = items.map(item =>
+        parseMomentForm(
+          {
+            kind: item.kind === 'checkup' ? 'checkup' : 'vaccine',
+            guide_key: item.key,
+            title: say(item.title),
+            occurred_on: date,
+            note: '',
+          },
+          baby.birthday,
+          dayKey(new Date()),
+        ),
+      );
+      const {data, error: e} = await supabase()
+        .from('baby_moments')
+        .insert(rows.map(r => ({...r, baby_id: baby.id, family_id: familyId, recorded_by: userId})))
+        .select();
+      if (e && e.code === '23505')
+        throw new Error(
+          tr(
+            '其中有项目已经记录过了，请取消勾选后再保存。',
+            'Some of these are already logged. Untick them and save again.',
+          ),
+        );
+      if (e) throw e;
+      ((data ?? []) as Moment[]).forEach(upsertMoment);
+      setVisitDraft(null);
+    });
+  }
+  async function removeMoment() {
+    const m = momentDraft?.editing;
+    if (
+      !m ||
+      !window.confirm(tr('删除这条记录？删除后无法恢复。', 'Delete this entry? This can’t be undone.'))
+    )
+      return;
+    await action(async () => {
+      const sb = supabase();
+      const {error: e} = await sb.from('baby_moments').delete().eq('id', m.id).eq('family_id', familyId);
+      if (e) throw e;
+      if (m.photo_path) await sb.storage.from('baby-avatars').remove([m.photo_path]);
+      dropMoment(m.id);
+      closeMomentDraft();
+    });
+  }
+  async function exportMoments() {
+    await action(async () => {
+      const names = new Map(babies.map(b => [b.id, babyName(b)]));
+      const kinds = {
+        milestone: tr('里程碑', 'Milestone'),
+        first: tr('第一次', 'First'),
+        vaccine: tr('疫苗', 'Vaccine'),
+        checkup: tr('体检', 'Checkup'),
+      };
+      const rows = [...moments].sort((a, b) => a.occurred_on.localeCompare(b.occurred_on));
+      const csv = toCsv([
+        [
+          tr('日期', 'Date'),
+          tr('宝宝', 'Baby'),
+          tr('类型', 'Type'),
+          tr('标题', 'Title'),
+          tr('备注', 'Note'),
+          tr('记录人', 'Logged by'),
+        ],
+        ...rows.map(m => {
+          const item = guideItem(m.guide_key);
+          return [
+            m.occurred_on,
+            names.get(m.baby_id) ?? '',
+            kinds[m.kind],
+            item ? say(item.title) : m.title,
+            m.note,
+            recorderName(m.recorded_by),
+          ];
+        }),
+      ]);
+      await saveTextFile(tr(`成长时刻-${dayKey(new Date())}.csv`, `moments-${dayKey(new Date())}.csv`), csv);
+      setSuccess(tr(`已导出 ${rows.length} 条成长时刻。`, `Exported ${rows.length} moments.`));
+    });
+  }
   async function joinFamily() {
     if (!inviteCode) return;
     await action(async () => {
@@ -908,7 +1167,17 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     router.replace('/auth');
   }
   function startPull(event: React.TouchEvent) {
-    if (refreshing || form || avatarDraft || deleteId || window.scrollY > 0) return;
+    if (
+      refreshing ||
+      form ||
+      avatarDraft ||
+      deleteId ||
+      momentDraft ||
+      visitDraft ||
+      guideBabyId ||
+      window.scrollY > 0
+    )
+      return;
     const touch = event.touches[0];
     pullStart.current = {x: touch.clientX, y: touch.clientY};
     pullDistanceRef.current = 0;
@@ -937,7 +1206,14 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     setError('');
     setSuccess('');
     try {
-      await Promise.all([loadFamilies(), loadBabies(), loadMembers(), loadGrowth(), refreshFeedings()]);
+      await Promise.all([
+        loadFamilies(),
+        loadBabies(),
+        loadMembers(),
+        loadGrowth(),
+        loadMoments(),
+        refreshFeedings(),
+      ]);
       setNow(Date.now());
     } catch (e) {
       showError(e);
@@ -1017,7 +1293,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   const nav: [Page, string, typeof House][] = [
     ['today', tr('今天', 'Today'), LayoutDashboard],
     ['history', tr('记录', 'Records'), CalendarDays],
-    ['growth', tr('生长', 'Growth'), Scale],
+    ['timeline', tr('成长', 'Growth'), Sprout],
     ['family', tr('家庭', 'Family'), House],
   ];
   return (
@@ -1149,9 +1425,59 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
                 <TrendView babies={activeBabies} feedings={feedings} days={range} />
               </>
             )}
+            {(page === 'growth' || page === 'timeline') && (
+              <>
+                <PageIntro title={tr('成长', 'Growth')} />
+                <div
+                  className="flex rounded-[18px] border border-(--rim)/80 bg-(--chip)/80 p-1.5 shadow-inner"
+                  role="tablist"
+                  aria-label={tr('时间线或生长曲线', 'Timeline or growth chart')}
+                >
+                  {(
+                    [
+                      ['timeline', tr('时间线', 'Timeline'), Sprout],
+                      ['growth', tr('生长曲线', 'Growth chart'), Scale],
+                    ] as const
+                  ).map(([key, label, Icon]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={page === key}
+                      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[14px] font-semibold transition ${page === key ? 'bg-(--paper) text-(--brand) shadow-[0_3px_12px_rgba(30,67,52,.09)]' : 'text-(--muted)'}`}
+                      onClick={() => {
+                        try {
+                          localStorage.setItem('growth-tab', key);
+                        } catch {}
+                        router.replace(`/${key}`);
+                      }}
+                    >
+                      <Icon size={18} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {page === 'timeline' && (
+              <TimelineView
+                babies={activeBabies}
+                avatarUrls={avatarUrls}
+                moments={moments}
+                photoUrls={photoUrls}
+                unavailable={momentsUnavailable}
+                today={dayKey(new Date(now))}
+                onLog={openMoment}
+                onEdit={editMoment}
+                onOpenGuide={baby => setGuideBabyId(baby.id)}
+                onLogVisit={(baby, items) => {
+                  setError('');
+                  setVisitDraft({baby, items});
+                }}
+              />
+            )}
             {page === 'growth' && (
               <>
-                <PageIntro title={tr('生长曲线', 'Growth')} />
                 <GrowthView
                   babies={activeBabies}
                   measurements={measurements}
@@ -1178,6 +1504,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
                 onSaveBaby={saveBaby}
                 exportFeedings={exportFeedings}
                 exportGrowth={exportGrowth}
+                exportMoments={exportMoments}
                 signOut={signOut}
                 openSettings={() => setSettingsOpen(true)}
               />
@@ -1189,13 +1516,18 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
           aria-label={tr('主导航', 'Main navigation')}
         >
           {nav.map(([key, label, Icon]) => {
-            const on = page === key || (key === 'history' && page === 'trends');
+            const on =
+              page === key ||
+              (key === 'history' && page === 'trends') ||
+              (key === 'timeline' && page === 'growth');
             return (
               <button
                 key={key}
                 aria-current={on ? 'page' : undefined}
                 className={`flex min-h-[58px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[19px] text-[11px] transition ${on ? 'bg-(--brand-pale) font-bold text-(--brand)' : 'text-(--soft) active:bg-(--surface-2)'}`}
-                onClick={() => router.push(`/${key === 'history' ? recordsTab() : key}`)}
+                onClick={() =>
+                  router.push(`/${key === 'history' ? recordsTab() : key === 'timeline' ? growthTab() : key}`)
+                }
               >
                 <Icon size={21} strokeWidth={on ? 2.5 : 1.8} />
                 {label}
@@ -1231,6 +1563,50 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
           />
         )}
         {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+        {guideBabyId && activeBabies.some(b => b.id === guideBabyId) && (
+          <GuideSheet
+            baby={activeBabies.find(b => b.id === guideBabyId)!}
+            moments={moments}
+            today={dayKey(new Date(now))}
+            onLog={item =>
+              openMoment(
+                activeBabies.find(b => b.id === guideBabyId)!,
+                item,
+              )
+            }
+            onEdit={editMoment}
+            onClose={() => setGuideBabyId(null)}
+          />
+        )}
+        {visitDraft && (
+          <VisitSheet
+            baby={visitDraft.baby}
+            items={visitDraft.items}
+            today={dayKey(new Date(now))}
+            busy={busy}
+            error={error}
+            onSave={saveVisit}
+            onClose={() => {
+              setVisitDraft(null);
+              setError('');
+            }}
+          />
+        )}
+        {momentDraft && (
+          <MomentSheet
+            draft={momentDraft}
+            setDraft={setMomentDraft}
+            existingPhotoUrl={
+              momentDraft.editing?.photo_path ? photoUrls[momentDraft.editing.photo_path] : undefined
+            }
+            today={dayKey(new Date(now))}
+            busy={busy}
+            error={error}
+            onSave={saveMoment}
+            onDelete={removeMoment}
+            onClose={closeMomentDraft}
+          />
+        )}
         {deleteId && (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#10231b]/50 p-6">
             <div
@@ -1264,6 +1640,14 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       </div>
     </>
   );
+}
+// The Growth tab reopens whichever of Timeline / Growth chart was used last (Timeline by default).
+function growthTab() {
+  try {
+    return localStorage.getItem('growth-tab') === 'growth' ? 'growth' : 'timeline';
+  } catch {
+    return 'timeline';
+  }
 }
 // The Records tab reopens whichever of History / Trends was used last.
 function recordsTab() {
