@@ -656,18 +656,9 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       } catch {}
       setForm(null);
       setEditing(null);
-      setSuccess(
-        offline
-          ? tr(
-              '现在没有网络，记录已先存在这台手机上，联网后会自动同步。',
-              'You’re offline. The record is saved on this phone and will sync when you’re back online.',
-            )
-          : editing
-            ? tr('记录已更新。', 'Record updated.')
-            : amount === null && duration === null
-              ? tr('时间已记录，吃完后可以补充奶量。', 'Time saved. You can add the amount after the feed.')
-              : tr('记录已保存。', 'Record saved.'),
-      );
+      // New feedings show up in the list straight away, so they need no confirmation message;
+      // offline saves are covered by the "not synced yet" banner.
+      if (editing && !offline) setSuccess(tr('记录已更新。', 'Record updated.'));
     });
   }
   async function removeFeeding() {
