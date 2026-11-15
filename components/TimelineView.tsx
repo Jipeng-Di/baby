@@ -168,6 +168,7 @@ export default function TimelineView({
           timeline={timeline}
           today={today}
           onOpenGuide={onOpenGuide}
+          onLog={unavailable ? undefined : () => onLog(baby)}
         />
 
         {timeline.moments.map(m => (
@@ -183,8 +184,8 @@ export default function TimelineView({
           <Node marker={<Dot tone="faint" />}>
             <p className="px-1 py-1 text-sm leading-relaxed text-(--muted)">
               {tr(
-                '第一次微笑、第一次翻身、第一次洗澡……点右下角的 + 或上面的 ✓，把这些时刻留下来，家人手机上也能看到。',
-                'First smile, first roll, first bath… tap + below or a ✓ above to keep these moments. Your family sees them too.',
+                '第一次微笑、第一次翻身、第一次洗澡……点“记录一个成长时刻”或上面的 ✓，把这些时刻留下来，家人手机上也能看到。',
+                'First smile, first roll, first bath… tap “Add a moment” or a ✓ above to keep these moments. Your family sees them too.',
               )}
             </p>
           </Node>
@@ -214,17 +215,6 @@ export default function TimelineView({
         {tr('完整成长指南：0–2 岁里程碑、疫苗、体检', 'Full growth guide: milestones, vaccines, checkups')}
       </button>
       <Disclaimer />
-
-      {!unavailable && (
-        <button
-          type="button"
-          aria-label={tr('记录成长时刻', 'Add a moment')}
-          className="fixed bottom-[calc(max(10px,env(safe-area-inset-bottom))+78px)] right-[max(18px,calc(50%-244px+18px))] z-20 flex h-14 w-14 items-center justify-center rounded-full bg-(--brand-solid) text-white shadow-[0_10px_28px_rgba(19,105,79,.35)] transition active:scale-95"
-          onClick={() => onLog(baby)}
-        >
-          <Plus size={26} strokeWidth={2.4} />
-        </button>
-      )}
     </>
   );
 }
@@ -256,12 +246,15 @@ function TodayNode({
   timeline,
   today,
   onOpenGuide,
+  onLog,
 }: {
   baby: Baby;
   avatarUrl?: string;
   timeline: Timeline;
   today: string;
   onOpenGuide: (baby: Baby, tab?: GuideTab) => void;
+  /** Opens the add-moment sheet; absent while the database isn't set up. */
+  onLog?: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const {ages, phases, tips} = timeline;
@@ -352,6 +345,18 @@ function TodayNode({
                 {tr(`这个阶段的健康提示 · ${other}`, `Health tips for this stage · ${other}`)}
               </button>
             )}
+          </div>
+        )}
+        {onLog && (
+          <div className="px-3 pb-3 pt-1">
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-(--brand-solid) font-semibold text-white shadow-[0_6px_16px_rgba(19,105,79,.22)] transition active:scale-[.98]"
+              onClick={onLog}
+            >
+              <Plus size={20} strokeWidth={2.4} />
+              {tr('记录一个成长时刻', 'Add a moment')}
+            </button>
           </div>
         )}
       </section>
