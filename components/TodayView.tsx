@@ -248,9 +248,13 @@ export default function TodayView({
             </button>
           ))}
         </div>
-        <button type="button" className="ui-primary mt-2 min-h-12!" onClick={() => onStartFeed(baby, 0)}>
-          <Pencil size={18} />
-          {tr('输入奶量 / 亲喂时长', 'Enter amount / nursing time')}
+        <button
+          type="button"
+          className="ui-primary mt-2 min-h-12! whitespace-nowrap"
+          onClick={() => onStartFeed(baby, 0)}
+        >
+          <Pencil size={18} className="shrink-0" />
+          {tr('输入奶量 / 亲喂时长', 'Enter amount or time')}
         </button>
       </section>
     );
