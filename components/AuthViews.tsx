@@ -73,9 +73,7 @@ export function AuthView({onError, user}: {onError: (e: unknown) => void; user: 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center p-6">
       <div className="mb-10">
-        <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-(--brand-solid) text-3xl text-white">
-          ✳
-        </div>
+        <img src="/icon.svg" alt="" className="h-16 w-16 rounded-[18px]" />
         <p className="mt-8 text-sm font-semibold tracking-[.2em] text-(--brand)">
           {'FEEDBOOK · BABY FEEDING'}
         </p>

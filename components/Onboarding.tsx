@@ -25,7 +25,7 @@ export default function Onboarding({error, success, busy, onCreate, onJoin}: Pro
   return (
     <main className="mx-auto min-h-screen max-w-lg p-6 pb-16">
       <div className="pt-12">
-        <span className="text-3xl">✳</span>
+        <img src="/icon.svg" alt="" className="h-12 w-12 rounded-[14px]" />
         <p className="mt-7 text-sm font-semibold tracking-[.2em] text-(--brand)">
           {tr('欢迎来到 Feedbook', 'Welcome to Feedbook')}
         </p>

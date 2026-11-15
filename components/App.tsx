@@ -983,7 +983,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     return (
       <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center p-6">
         <div className={card}>
-          <div className="mb-4 text-3xl">✳</div>
+          <img src="/icon.svg" alt="" className="mb-4 h-12 w-12 rounded-[14px]" />
           <h1 className="text-3xl font-semibold">{tr('一起照顾宝宝', 'Care for your baby together')}</h1>
           <p className="mt-3 text-(--muted)">
             {tr(
