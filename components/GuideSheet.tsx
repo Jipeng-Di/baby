@@ -14,6 +14,7 @@ type Tab = 'milestone' | 'vaccine' | 'checkup' | 'health';
 /** The whole guide for one baby, with everything that can be ticked off. */
 export default function GuideSheet({
   baby,
+  initialTab = 'milestone',
   moments,
   today,
   onLog,
@@ -21,6 +22,7 @@ export default function GuideSheet({
   onClose,
 }: {
   baby: Baby;
+  initialTab?: Tab;
   moments: Moment[];
   today: string;
   onLog: (item: GuideItem) => void;
@@ -29,7 +31,7 @@ export default function GuideSheet({
 }) {
   useLang();
   const region = useRegion();
-  const [tab, setTab] = useState<Tab>('milestone');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [open, setOpen] = useState<string | null>(null);
   const timeline = useMemo(() => buildTimeline(baby, moments, region, today), [baby, moments, region, today]);
   const [ageOpen, setAgeOpen] = useState<number | null>(

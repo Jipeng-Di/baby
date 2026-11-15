@@ -24,23 +24,25 @@ export type Timeline = {
   phases: GuideItem[];
   /** Health tips for this age, safety items first. */
   tips: GuideItem[];
-  /** Highlighted milestones of the current checklist age that aren't logged yet. */
-  milestones: GuideItem[];
-  /** Doctor visits (a checkup and the vaccines given at the same age) due now or soon. */
-  visits: Visit[];
+  /** What's ahead on the timeline: doctor visits and milestone checklists, nearest first. */
+  upcoming: Upcoming[];
   /** Logged moments, newest first. */
   moments: Moment[];
   /** guide_key → moment, for showing guide items as done. */
   done: Map<string, Moment>;
 };
 
-export type Visit = {
-  /** Age in months the visit is scheduled for. */
+/** A future node on the timeline: one doctor visit, or the milestones to look out for by one age. */
+export type Upcoming = {
+  kind: 'visit' | 'milestones';
+  /** Age in months the node is scheduled for. */
   from: number;
-  /** Checkup first, then vaccines. */
+  /** Checkup first, then vaccines; or the highlighted milestones of the checklist age. */
   items: GuideItem[];
   /** Items not logged yet. */
   open: GuideItem[];
+  /** The window has started: the baby is old enough now. */
+  due: boolean;
 };
 
 /** Milestone checklist ages close to the current (corrected) age: the stage now and the next one. */
@@ -64,43 +66,54 @@ export function buildTimeline(
     const age = ageFor(item, ages);
     return item.from <= age && age <= item.to;
   };
-  // The nearest checklist age that still has highlighted milestones to look out for.
-  const milestones =
-    nearMilestoneAges(ages.corrected)
-      .map(age =>
-        guide.filter(i => i.kind === 'milestone' && i.highlight && i.from === age && !done.has(i.key)),
-      )
-      .find(list => list.length) ?? [];
-  // Vaccines and checkups due now, recently due, or coming within about six weeks, grouped by visit age.
+  // Milestone checklists from the current age on, skipping ages whose highlights are all logged.
+  const milestoneNodes: Upcoming[] = MILESTONE_AGES.filter(a => a >= ages.corrected - 1).flatMap(age => {
+    const items = guide.filter(i => i.kind === 'milestone' && i.highlight && i.from === age);
+    const open = items.filter(i => !done.has(i.key));
+    // Milestones are things to look out for *by* this age, so the window opens well before it.
+    return open.length
+      ? [{kind: 'milestones' as const, from: age, items, open, due: ages.corrected >= age - 2}]
+      : [];
+  });
+  // Vaccines and checkups still open, grouped by visit age. Windows that closed over a month ago are left
+  // to the full guide rather than kept on the timeline forever.
   const health = guide.filter(i => i.kind === 'vaccine' || i.kind === 'checkup');
   const pending = health.filter(i => {
     if (done.has(i.key)) return false;
     // The RSV antibody is seasonal and depends on the mother's vaccine, so don't keep it "due" for months.
     if (i.vaccine === 'rsv' && ages.actual > 1) return false;
-    const age = ageFor(i, ages);
-    return i.from <= age + 1.5 && i.to >= age - 1;
+    return i.to >= ageFor(i, ages) - 1;
   });
-  const visits = [...new Set(pending.map(i => i.from))]
+  const visitNodes: Upcoming[] = [...new Set(pending.map(i => i.from))]
     .sort((a, b) => a - b)
-    .slice(0, 2)
     .map(from => {
       const items = health
         .filter(i => i.from === from && (i.vaccine !== 'rsv' || pending.includes(i)))
         .sort((a, b) => kindOrder(a) - kindOrder(b));
-      return {from, items, open: items.filter(i => !done.has(i.key))};
+      return {
+        kind: 'visit',
+        from,
+        items,
+        open: items.filter(i => !done.has(i.key)),
+        due: ageFor(items[0], ages) >= from,
+      };
     });
+  // Milestones sort just ahead of the visit at the same age: families watch for them before the checkup.
+  const upcoming = [...milestoneNodes, ...visitNodes].sort(
+    (a, b) => sortAge(a) - sortAge(b) || Number(b.kind === 'milestones') - Number(a.kind === 'milestones'),
+  );
   return {
     ages,
     phases: guide.filter(item => item.kind === 'phase' && within(item)),
     tips: guide
       .filter(item => item.kind === 'tip' && within(item))
       .sort((a, b) => Number(!!b.important) - Number(!!a.important)),
-    milestones,
-    visits,
+    upcoming,
     moments: mine,
     done,
   };
 }
+const sortAge = (n: Upcoming) => (n.kind === 'milestones' ? n.from - 0.5 : n.from);
 const ORDER: Record<GuideItem['kind'], number> = {checkup: 0, vaccine: 1, milestone: 2, phase: 3, tip: 4};
 const kindOrder = (item: GuideItem) => ORDER[item.kind];
 

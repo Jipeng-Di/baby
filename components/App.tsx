@@ -48,7 +48,7 @@ import {guideItem, say, type GuideItem} from '@/lib/guide';
 import {parseMomentForm} from '@/lib/timeline';
 import {compressPhoto} from '@/lib/image';
 import GrowthView, {type GrowthValues} from './GrowthView';
-import TimelineView from './TimelineView';
+import TimelineView, {type GuideTab} from './TimelineView';
 import GuideSheet from './GuideSheet';
 import MomentSheet, {type MomentDraft} from './MomentSheet';
 import VisitSheet from './VisitSheet';
@@ -98,6 +98,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   const [momentsUnavailable, setMomentsUnavailable] = useState(false);
   const [momentDraft, setMomentDraft] = useState<MomentDraft | null>(null);
   const [guideBabyId, setGuideBabyId] = useState<string | null>(null);
+  const [guideTab, setGuideTab] = useState<GuideTab>('milestone');
   const [visitDraft, setVisitDraft] = useState<{baby: Baby; items: GuideItem[]} | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [busy, setBusy] = useState(false);
@@ -1469,7 +1470,10 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
                 today={dayKey(new Date(now))}
                 onLog={openMoment}
                 onEdit={editMoment}
-                onOpenGuide={baby => setGuideBabyId(baby.id)}
+                onOpenGuide={(baby, tab = 'milestone') => {
+                  setGuideTab(tab);
+                  setGuideBabyId(baby.id);
+                }}
                 onLogVisit={(baby, items) => {
                   setError('');
                   setVisitDraft({baby, items});
@@ -1566,6 +1570,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         {guideBabyId && activeBabies.some(b => b.id === guideBabyId) && (
           <GuideSheet
             baby={activeBabies.find(b => b.id === guideBabyId)!}
+            initialTab={guideTab}
             moments={moments}
             today={dayKey(new Date(now))}
             onLog={item =>

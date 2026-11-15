@@ -73,25 +73,35 @@ describe('timeline', () => {
     expect(t.phases.map(p => p.key)).toContain('p.crying');
     expect(t.tips[0].key).toBe('t.fever');
   });
-  it('groups the 2-month checkup and vaccines into one visit at 6 weeks', () => {
+  it('puts the 2-month visit and the 2-month milestones ahead at 6 weeks', () => {
     const t = buildTimeline(baby, [], 'us', '2026-08-06');
-    expect(t.visits.map(v => v.from)).toEqual([1, 2]);
-    const two = t.visits[1];
+    const visits = t.upcoming.filter(n => n.kind === 'visit');
+    expect(visits.slice(0, 2).map(v => v.from)).toEqual([1, 2]);
+    const two = visits[1];
     expect(two.items[0].key).toBe('c.us.2');
     expect(two.items.map(i => i.key)).toContain('v.us.dtap.1');
     expect(two.items.some(i => i.key === 'v.us.mmr.1')).toBe(false);
-    expect(t.milestones.map(i => i.key)).toContain('m.2.social-smile');
+    expect(two.due).toBe(false);
+    expect(visits[0].due).toBe(true);
+    const milestones = t.upcoming.find(n => n.kind === 'milestones')!;
+    expect(milestones.items.map(i => i.key)).toContain('m.2.social-smile');
+    expect(milestones.due).toBe(true);
+    // Milestones to watch for by 2 months come just before the 2-month visit.
+    expect(t.upcoming.indexOf(milestones)).toBe(t.upcoming.indexOf(two) - 1);
+    // Every visit up to school age is on the line, nearest first.
+    expect(visits.map(v => v.from)).toEqual([...visits.map(v => v.from)].sort((a, b) => a - b));
+    expect(visits.at(-1)!.from).toBeGreaterThanOrEqual(48);
   });
   it('drops logged items and maps them as done', () => {
     const logged = moment({guide_key: 'v.us.dtap.1', kind: 'vaccine'});
     const t = buildTimeline(baby, [logged, moment({id: 'other', baby_id: 'b2'})], 'us', '2026-08-06');
-    const two = t.visits.find(v => v.from === 2)!;
+    const two = t.upcoming.find(v => v.kind === 'visit' && v.from === 2)!;
     expect(two.items.some(i => i.key === 'v.us.dtap.1')).toBe(true);
     expect(two.open.some(i => i.key === 'v.us.dtap.1')).toBe(false);
     expect(t.done.get('v.us.dtap.1')?.id).toBe('x');
     expect(t.moments).toHaveLength(1);
   });
-  it('moves on to the next milestone age once the current highlights are logged', () => {
+  it('removes a milestone age from the line once its highlights are logged', () => {
     const keys = ['m.2.social-smile', 'm.2.sounds', 'm.2.head-up'];
     const t = buildTimeline(
       baby,
@@ -99,11 +109,13 @@ describe('timeline', () => {
       'us',
       '2026-08-06',
     );
-    expect(t.milestones.every(i => i.from === 4)).toBe(true);
+    const ages = t.upcoming.filter(n => n.kind === 'milestones').map(n => n.from);
+    expect(ages[0]).toBe(4);
+    expect(ages).not.toContain(2);
   });
   it('stops showing the seasonal RSV antibody after the first month', () => {
     const t = buildTimeline(baby, [], 'us', '2026-10-25');
-    expect(t.visits.flatMap(v => v.items).some(i => i.vaccine === 'rsv')).toBe(false);
+    expect(t.upcoming.flatMap(v => v.items).some(i => i.vaccine === 'rsv')).toBe(false);
   });
   it('uses corrected age for milestones and actual age for vaccines', () => {
     const preterm = {...baby, gestational_age_days: 30 * 7};
@@ -112,8 +124,8 @@ describe('timeline', () => {
     expect(ages.actual - ages.corrected).toBeCloseTo(70 / 30.4375, 3);
     const t = buildTimeline(preterm, [], 'us', '2026-10-25');
     // Actual age 4 months: the 4-month visit is due even though corrected age is under 2 months.
-    expect(t.visits.some(v => v.from === 4)).toBe(true);
-    expect(t.milestones.every(i => i.from === 2)).toBe(true);
+    expect(t.upcoming.some(v => v.kind === 'visit' && v.from === 4)).toBe(true);
+    expect(t.upcoming.find(n => n.kind === 'milestones')!.from).toBe(2);
   });
   it('picks the current and next milestone checklist ages', () => {
     expect(nearMilestoneAges(0.5)).toEqual([2]);
