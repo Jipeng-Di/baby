@@ -257,9 +257,9 @@ function TodayNode({
   onLog?: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  const {ages, phases, tips} = timeline;
+  const {ages, phases, tips, care} = timeline;
   const important = tips.filter(t => t.important);
-  const other = tips.length - important.length;
+  const other = tips.length - important.length + care.length;
   const corrected = ages.isCorrected
     ? babyAge(
         shiftDate(baby.birthday, Math.round((ages.actual - ages.corrected) * 30.4375)),
@@ -342,7 +342,10 @@ function TodayNode({
                 onClick={() => onOpenGuide(baby, 'health')}
               >
                 <HeartPulse size={16} className="shrink-0 text-(--brand)" />
-                {tr(`这个阶段的健康提示 · ${other}`, `Health tips for this stage · ${other}`)}
+                {tr(
+                  `这个阶段的健康提示和常见问题 · ${other}`,
+                  `Health tips & common problems now · ${other}`,
+                )}
               </button>
             )}
           </div>

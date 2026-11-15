@@ -20,7 +20,8 @@ export type Region = 'us' | 'cn';
 export type Text = {zh: string; en: string};
 export const say = (t: Text) => tr(t.zh, t.en);
 
-export type GuideKind = 'milestone' | 'vaccine' | 'checkup' | 'phase' | 'tip';
+/** `care`: what to do about a common problem (gas, spit-up, colds…), shown by age like tips. */
+export type GuideKind = 'milestone' | 'vaccine' | 'checkup' | 'phase' | 'tip' | 'care';
 export type MilestoneArea = 'social' | 'language' | 'cognitive' | 'movement';
 export type VaccineId =
   | 'hepb'
@@ -226,6 +227,109 @@ export const SOURCES = {
     },
     url: 'https://www.nhc.gov.cn/ewebeditor/uploadfile/2017/10/20171026154305316.pdf',
   },
+  gas: hc(
+    '宝宝胀气怎么办',
+    'Gas relief for babies',
+    'ages-stages/baby/diapers-clothing/Pages/Breaking-Up-Gas.aspx',
+  ),
+  spitUp: hc(
+    '为什么宝宝会吐奶',
+    'Why babies spit up',
+    'ages-stages/baby/feeding-nutrition/Pages/Why-Babies-Spit-Up.aspx',
+  ),
+  burping: hc(
+    '拍嗝、打嗝和吐奶',
+    'Burping, hiccups and spit-up',
+    'ages-stages/baby/feeding-nutrition/Pages/baby-burping-hiccups-and-spit-up.aspx',
+  ),
+  constipation: hc(
+    '宝宝便秘了吗',
+    'Is my baby constipated?',
+    'ages-stages/baby/diapers-clothing/Pages/Infant-Constipation.aspx',
+  ),
+  poop: hc(
+    '大便多少次算正常',
+    'Pooping by the numbers',
+    'ages-stages/baby/Pages/Pooping-By-the-Numbers.aspx',
+  ),
+  diaperRash: hc('尿布疹', 'Diaper rash', 'ages-stages/baby/diapers-clothing/Pages/Diaper-Rash.aspx'),
+  cradleCap: hc('乳痂（头皮结痂）', 'Cradle cap', 'ages-stages/baby/bathing-skin-care/Pages/Cradle-Cap.aspx'),
+  heatRash: hc('痱子', 'Heat rash', 'ages-stages/baby/bathing-skin-care/Pages/Heat-Rash.aspx'),
+  cold: hc(
+    '宝宝感冒怎么护理',
+    'Caring for your child’s cold',
+    'health-issues/conditions/flu/Pages/caring-for-Your-childs-cold-or-flu.aspx',
+  ),
+  stuffyNose: hc(
+    '鼻塞时怎么安全睡觉',
+    'Stuffy nose and safe sleep',
+    'tips-tools/ask-the-pediatrician/Pages/my-baby-has-a-stuffy-nose-how-can-i-help-them-sleep-safely.aspx',
+  ),
+  eczema: hc(
+    '湿疹护理',
+    'Treating and controlling eczema',
+    'health-issues/conditions/skin/Pages/how-to-treat-and-control-eczema-rashes-in-children.aspx',
+  ),
+  dehydration: hc(
+    '脱水的信号',
+    'Signs of dehydration',
+    'health-issues/injuries-emergencies/Pages/dehydration.aspx',
+  ),
+  diarrhea: hc(
+    '宝宝腹泻',
+    'Diarrhea in babies',
+    'ages-stages/baby/diapers-clothing/Pages/Diarrhea-in-Babies.aspx',
+  ),
+  vomiting: hc(
+    '呕吐时怎么办',
+    'Treating vomiting',
+    'health-issues/conditions/abdominal/Pages/treating-vomiting.aspx',
+  ),
+  feverCare: hc(
+    '不必害怕发烧',
+    'Fever without fear',
+    'health-issues/conditions/fever/Pages/Fever-Without-Fear.aspx',
+  ),
+  acetaminophen: hc(
+    '对乙酰氨基酚剂量表',
+    'Acetaminophen dosing table',
+    'safety-prevention/at-home/medication-safety/Pages/Acetaminophen-for-Fever-and-Pain.aspx',
+  ),
+  earInfection: hc(
+    '中耳炎的表现',
+    'Ear infection symptoms',
+    'health-issues/conditions/ear-nose-throat/Pages/Ear-Infection-Symptoms.aspx',
+  ),
+  cord: hc(
+    '脐带护理',
+    'Umbilical cord care',
+    'ages-stages/baby/bathing-skin-care/Pages/Umbilical-Cord-Care.aspx',
+  ),
+  bathing: hc(
+    '给宝宝洗澡',
+    'Bathing your baby',
+    'ages-stages/baby/bathing-skin-care/Pages/Bathing-Your-Newborn.aspx',
+  ),
+  thrush: hc(
+    '鹅口疮',
+    'Thrush',
+    'health-issues/conditions/infections/Pages/Thrush-and-Other-Candida-Infections.aspx',
+  ),
+  feedingTrouble: hc(
+    '吃奶困难的信号',
+    'Signs of feeding difficulties',
+    'ages-stages/baby/feeding-nutrition/Pages/Signs-of-Feeding-Difficulties.aspx',
+  ),
+  babySleep: hc(
+    '帮宝宝入睡',
+    'Getting your baby to sleep',
+    'ages-stages/baby/sleep/Pages/Getting-Your-Baby-to-Sleep.aspx',
+  ),
+  urgent: hc(
+    '去急诊、急症门诊还是找儿科医生',
+    'Urgent care, ER or pediatrician?',
+    'family-life/health-management/Pages/urgent-care-ER-or-pediatrician-a-parent-guide.aspx',
+  ),
   cnDiet: {
     name: {zh: '中国居民膳食指南（2022）', en: 'Chinese Dietary Guidelines (2022)'},
     url: 'http://dg.cnsoc.org/',
@@ -1331,6 +1435,231 @@ const tips: GuideItem[] = [
   },
 ];
 
+// ------------------------------------------------------------------------- common problems (care)
+type C = [key: string, from: number, to: number, title: Text, body: Text, source: Source];
+const care: GuideItem[] = (
+  [
+    [
+      'gas',
+      0,
+      6,
+      {zh: '胀气、放屁多、扭来扭去', en: 'Gas and squirming'},
+      {
+        zh: '吃奶时吞进的空气是主因。喂奶中途和喂完都拍嗝，奶瓶选慢流速奶嘴、冲好后静置让泡沫消掉，别喂过量。让宝宝仰躺蹬“自行车”、趴在你腿上揉背，都能帮气排出。西甲硅油之类的“排气滴剂”没有证据显示有效。',
+        en: 'Swallowed air is the usual cause. Burp mid-feed and after, use a slow-flow nipple, let mixed formula settle, and don’t overfeed. Bicycling the legs and lying tummy-down across your lap help gas move along. Gas drops have never been shown to work.',
+      },
+      SOURCES.gas,
+    ],
+    [
+      'spitup',
+      0,
+      12,
+      {zh: '吐奶', en: 'Spitting up'},
+      {
+        zh: '一半的宝宝会吐奶，2–3 周开始、4–5 个月最多、9–12 个月基本消失。只要体重增长正常、不难受，就不用处理。少量多次喂、勤拍嗝、喂完竖抱 20–30 分钟会好一些。喷射状呕吐、带血或绿色、体重不长要就医。',
+        en: 'Half of all babies spit up: it starts at 2–3 weeks, peaks at 4–5 months and is mostly gone by 9–12 months. If weight gain is fine and the baby is comfortable, nothing needs doing. Smaller, more frequent feeds, burping and 20–30 minutes upright afterwards help. See a doctor for forceful vomiting, blood or green colour, or poor weight gain.',
+      },
+      SOURCES.spitUp,
+    ],
+    [
+      'hiccups',
+      0,
+      6,
+      {zh: '打嗝', en: 'Hiccups'},
+      {
+        zh: '小宝宝常打嗝，多半是吃得急或吃多了，不难受也不需要治。喂奶中途停下来拍个嗝，或者让他再吸几口，一般几分钟就好。',
+        en: 'Babies hiccup a lot, usually after eating fast or a bit too much. It doesn’t bother them and needs no treatment. A pause to burp, or a few more sucks, usually ends it within minutes.',
+      },
+      SOURCES.burping,
+    ],
+    [
+      'poop',
+      0,
+      3,
+      {zh: '大便几次、什么样算正常', en: 'What normal poop looks like'},
+      {
+        zh: '头几天是墨绿色胎便，之后母乳宝宝的大便多是黄色稀糊带颗粒，一天好几次到几天一次都正常；配方奶宝宝的更稠、颜色偏黄褐。白色、黑色（胎便排完之后）或带血的大便要看医生。',
+        en: 'Meconium is dark green for the first days. After that, breastfed poop is usually yellow, loose and seedy, anywhere from several times a day to once every few days; formula poop is firmer and tan. White, black (after meconium) or bloody stools need a doctor.',
+      },
+      SOURCES.poop,
+    ],
+    [
+      'constipation',
+      1,
+      36,
+      {zh: '便秘', en: 'Constipation'},
+      {
+        zh: '憋红脸、使劲几分钟，只要拉出来的是软便，就不是便秘。大便干硬成球、带血、或者使劲十几分钟拉不出来才是。可以帮宝宝屈膝贴肚、轻揉肚子；满月以后可以试少量苹果汁或梨汁；吃辅食后多给西梅、梨、豆类和水。',
+        en: 'Red face and straining are normal as long as the stool comes out soft. Hard pellets, blood, or straining ten minutes with nothing is constipation. Bicycle the legs, massage the tummy, try a little apple or pear juice after 1 month, and once on solids offer prunes, pears, beans and water.',
+      },
+      SOURCES.constipation,
+    ],
+    [
+      'cord',
+      0,
+      0.75,
+      {zh: '脐带护理', en: 'Umbilical cord care'},
+      {
+        zh: '保持干燥就好，不需要酒精。尿布前沿往下折，别盖住脐带；脱落前只擦澡。一般 1–3 周脱落，脱落时有几滴血正常。脐周发红、肿、流脓或有臭味要就医。',
+        en: 'Keep it dry, no alcohol needed. Fold the diaper below the stump and stick to sponge baths until it falls off, usually in 1–3 weeks. A few drops of blood then are normal. Redness, swelling, pus or a bad smell need a doctor.',
+      },
+      SOURCES.cord,
+    ],
+    [
+      'bath',
+      0,
+      12,
+      {zh: '洗澡', en: 'Bathing'},
+      {
+        zh: '一周洗 2–3 次就够了，洗多了皮肤会干。水温用手肘试，温而不烫；准备好所有东西再开始，手一刻不离开宝宝。用清水或少量温和无香的沐浴露，洗完立刻擦干、涂润肤。',
+        en: 'Two or three baths a week is plenty; more dries the skin. Test the water with your elbow, lay everything out first, and never take your hand off the baby. Plain water or a little mild fragrance-free wash, then dry and moisturise right away.',
+      },
+      SOURCES.bathing,
+    ],
+    [
+      'feeding',
+      0,
+      1,
+      {zh: '吃奶是不是不够', en: 'Is feeding going well?'},
+      {
+        zh: '满 5 天后每天 6 片以上湿尿布、大便规律、吃完能安静一会儿、两周内回到出生体重，就说明吃够了。总是吃着睡着、吃很久还不满足、尿少、黄疸加重，要尽快请医生或哺乳顾问看看。',
+        en: 'From day 5, six or more wet diapers a day, regular stools, calm stretches after feeds and birth weight regained by two weeks mean feeding is going well. Falling asleep at every feed, feeding endlessly without settling, few wet diapers or deepening jaundice need a prompt check.',
+      },
+      SOURCES.feedingTrouble,
+    ],
+    [
+      'cradlecap',
+      0.5,
+      12,
+      {zh: '头皮上的黄色结痂（乳痂）', en: 'Cradle cap'},
+      {
+        zh: '头皮上油腻的黄色鳞屑，不痒也不传染，几周到几个月会自己好。可以用婴儿洗发水勤洗，洗前抹一点婴儿油软化、用软毛刷轻轻刷掉。结痂流水、有脓才需要看医生。',
+        en: 'Greasy yellow scales on the scalp, not itchy or contagious, that clear on their own in weeks to months. Wash often with baby shampoo, soften with a little oil first and brush gently with a soft brush. Only weeping or pus needs a doctor.',
+      },
+      SOURCES.cradleCap,
+    ],
+    [
+      'diaperrash',
+      0,
+      36,
+      {zh: '尿布疹（红屁股）', en: 'Diaper rash'},
+      {
+        zh: '勤换尿布、温水清洗、拍干、每次换都厚厚涂一层氧化锌护臀膏，多让屁股晾一会儿。不用爽身粉。3 天不好、起水泡、流脓或皱褶里红得发亮（可能是真菌），要看医生。',
+        en: 'Change often, rinse with warm water, pat dry, put on a thick layer of zinc-oxide cream at every change and give some diaper-free time. Skip baby powder. See a doctor if it’s no better in 3 days, blisters, oozes, or is bright red in the folds (possibly yeast).',
+      },
+      SOURCES.diaperRash,
+    ],
+    [
+      'eczema',
+      1,
+      36,
+      {zh: '湿疹', en: 'Eczema'},
+      {
+        zh: '脸颊、肘窝、膝盖后面干燥发红起皮，反复出现就是湿疹。关键是保湿：温水短时间洗澡、不用肥皂，洗完 3 分钟内厚涂无香润肤霜，每天至少两次。穿纯棉、洗衣不用柔顺剂。发作时医生会开弱效激素药膏，按医嘱用是安全的。',
+        en: 'Dry, red, scaly patches on cheeks, elbows and behind the knees that keep coming back. Moisture is everything: short lukewarm baths without soap, thick fragrance-free cream within 3 minutes of the bath and at least twice a day. Cotton clothes, no fabric softener. Mild steroid creams from the doctor are safe for flares.',
+      },
+      SOURCES.eczema,
+    ],
+    [
+      'heatrash',
+      0,
+      24,
+      {zh: '痱子', en: 'Heat rash'},
+      {
+        zh: '脖子、腋下、皱褶里的细小红疹，是捂热了汗腺堵住。少穿一层、保持凉爽通风、温水冲洗后晾干就会退，不要涂厚油膏。',
+        en: 'Tiny red bumps on the neck, armpits and skin folds from blocked sweat glands. Take off a layer, keep the baby cool, rinse with lukewarm water and let the skin air-dry. No thick ointments.',
+      },
+      SOURCES.heatRash,
+    ],
+    [
+      'thrush',
+      0,
+      12,
+      {zh: '嘴里的白斑（鹅口疮）', en: 'White patches in the mouth (thrush)'},
+      {
+        zh: '舌头、口腔内侧擦不掉的白色斑块，是常见的真菌感染，可能让宝宝不愿吃奶。医生会开口服抗真菌药；母乳喂养的妈妈乳头也要一起治，奶嘴、安抚奶嘴要煮沸消毒。',
+        en: 'White patches on the tongue and cheeks that don’t wipe off are a common yeast infection and can make feeding uncomfortable. The doctor prescribes an oral antifungal; treat a breastfeeding mother’s nipples too, and boil bottle nipples and pacifiers.',
+      },
+      SOURCES.thrush,
+    ],
+    [
+      'cold',
+      0,
+      36,
+      {zh: '感冒、鼻塞', en: 'Colds and stuffy noses'},
+      {
+        zh: '一年感冒 8–10 次很正常，多是病毒，抗生素没用。生理盐水滴鼻 1–2 滴再用吸鼻器吸，喂奶和睡前做效果最好；房间加湿、多喝奶。4 岁以下不要用感冒药。3 个月以下发烧、呼吸费力、不肯喝奶、精神差要就医。',
+        en: 'Eight to ten colds a year is normal, almost all viral, so antibiotics don’t help. Saline drops, 1–2 per nostril, then a bulb syringe, works best before feeds and sleep; add a humidifier and extra fluids. No cold medicines under 4. See a doctor for fever under 3 months, hard breathing, refusing feeds or listlessness.',
+      },
+      SOURCES.cold,
+    ],
+    [
+      'fever',
+      3,
+      36,
+      {zh: '3 个月以上发烧怎么处理', en: 'Fever after 3 months'},
+      {
+        zh: '发烧本身不是病，是身体在对抗感染。38–39°C 又精神不错，不一定要吃药；难受时可以按体重给对乙酰氨基酚（6 个月以上也可以用布洛芬），不要两种混用、不要酒精擦浴。多喝奶、少穿。烧超过 3 天、不肯喝水、异常嗜睡或有皮疹，要就医。',
+        en: 'Fever itself isn’t an illness; it’s the body fighting infection. At 38–39°C with a cheerful baby, medicine is optional. If uncomfortable, give acetaminophen by weight (ibuprofen too from 6 months), never both, and no alcohol rubs. Offer fluids and dress lightly. See a doctor if it lasts over 3 days, the baby won’t drink, is unusually sleepy or has a rash.',
+      },
+      SOURCES.feverCare,
+    ],
+    [
+      'tummybug',
+      0,
+      36,
+      {zh: '腹泻、呕吐：防脱水', en: 'Diarrhea and vomiting: avoid dehydration'},
+      {
+        zh: '最要紧的是补水：继续母乳或配方奶，少量多次；呕吐频繁可以用口服补液盐，每次吐或拉后喂 60–120 ml。不要喝果汁和运动饮料。尿布 6 小时以上没湿、哭没眼泪、嘴干、囟门凹陷、特别蔫，或者 3 个月以下发烧、便中带血，要马上就医。',
+        en: 'Fluids matter most: keep breastfeeding or formula in small frequent amounts, and use oral rehydration solution, 60–120 ml after each vomit or watery stool, if vomiting is frequent. No juice or sports drinks. Go to the doctor for no wet diaper in 6 hours, no tears, dry mouth, a sunken soft spot, listlessness, fever under 3 months or blood in the stool.',
+      },
+      SOURCES.dehydration,
+    ],
+    [
+      'ear',
+      4,
+      36,
+      {zh: '是不是中耳炎', en: 'Could it be an ear infection?'},
+      {
+        zh: '感冒几天后突然哭闹加重、吃奶时更烦躁、夜里醒得多、发烧，可能是中耳炎；光是抓耳朵不说明问题。只有医生看过耳朵才能确诊，很多轻症会自己好，医生可能先观察再决定用不用抗生素。',
+        en: 'Sudden fussiness a few days into a cold, crying more during feeds, waking at night and fever point to an ear infection; ear-pulling alone doesn’t. Only an exam can confirm it. Many mild cases clear on their own, so the doctor may watch and wait before antibiotics.',
+      },
+      SOURCES.earInfection,
+    ],
+    [
+      'sleep',
+      4,
+      24,
+      {zh: '夜里总醒、哄不睡', en: 'Night waking and settling'},
+      {
+        zh: '4 个月后宝宝的睡眠周期像大人一样，每个周期末尾会短暂醒来，能不能自己接着睡是关键。固定的睡前程序、在迷糊但还醒着时放下、白天睡够、夜里回应时少开灯少说话，几周就会见效。',
+        en: 'From about 4 months, babies cycle through sleep like adults and briefly surface at the end of each cycle; the skill is drifting back off alone. A set bedtime routine, putting the baby down drowsy but awake, enough daytime sleep and quiet, dim night responses pay off within weeks.',
+      },
+      SOURCES.babySleep,
+    ],
+    [
+      'urgent',
+      0,
+      36,
+      {zh: '什么情况该去急诊', en: 'When to go to the ER'},
+      {
+        zh: '呼吸困难或发青、3 个月以下发烧、抽搐、叫不太醒、严重脱水、摔到头后呕吐或行为异常、误吞药物或纽扣电池，直接去急诊。其他情况先打给儿科医生，大多数小问题门诊就能解决。',
+        en: 'Trouble breathing or turning blue, fever under 3 months, a seizure, hard to wake, severe dehydration, vomiting or odd behaviour after a head bump, or swallowing medicine or a button battery: go straight to the ER. For everything else, call the pediatrician first; most problems are handled in the office.',
+      },
+      SOURCES.urgent,
+    ],
+  ] as C[]
+).map(([slug, from, to, title, body, source]) => ({
+  key: `care.${slug}`,
+  kind: 'care' as const,
+  from,
+  to,
+  corrected: false,
+  title,
+  body,
+  source,
+}));
+
 const ALL: GuideItem[] = [
   ...milestoneItems,
   ...US_VACCINES,
@@ -1339,11 +1668,12 @@ const ALL: GuideItem[] = [
   ...cnCheckups,
   ...phases,
   ...tips,
+  ...care,
 ];
 const byKey = new Map(ALL.map(item => [item.key, item]));
 export const guideItem = (key: string | null | undefined) => (key ? byKey.get(key) : undefined);
 /** Guide items that apply to a region (shared items have no region). */
 export const guideFor = (region: Region) => ALL.filter(item => !item.region || item.region === region);
 /** Items a family can tick off as done. */
-export const loggable = (item: GuideItem) =>
+export const loggable = (item: GuideItem): item is GuideItem & {kind: 'milestone' | 'vaccine' | 'checkup'} =>
   item.kind === 'milestone' || item.kind === 'vaccine' || item.kind === 'checkup';

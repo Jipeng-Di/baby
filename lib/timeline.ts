@@ -1,5 +1,5 @@
 import {growthAge} from './who-growth';
-import {guideFor, guideItem, MILESTONE_AGES, type GuideItem, type Region} from './guide';
+import {guideFor, guideItem, loggable, MILESTONE_AGES, type GuideItem, type Region} from './guide';
 import {tr} from './i18n';
 import type {Baby, Moment, MomentKind} from './types';
 
@@ -24,6 +24,8 @@ export type Timeline = {
   phases: GuideItem[];
   /** Health tips for this age, safety items first. */
   tips: GuideItem[];
+  /** Common problems at this age and what to do about them. */
+  care: GuideItem[];
   /** What's ahead on the timeline: doctor visits and milestone checklists, nearest first. */
   upcoming: Upcoming[];
   /** Logged moments, newest first. */
@@ -108,13 +110,21 @@ export function buildTimeline(
     tips: guide
       .filter(item => item.kind === 'tip' && within(item))
       .sort((a, b) => Number(!!b.important) - Number(!!a.important)),
+    care: guide.filter(item => item.kind === 'care' && within(item)),
     upcoming,
     moments: mine,
     done,
   };
 }
 const sortAge = (n: Upcoming) => (n.kind === 'milestones' ? n.from - 0.5 : n.from);
-const ORDER: Record<GuideItem['kind'], number> = {checkup: 0, vaccine: 1, milestone: 2, phase: 3, tip: 4};
+const ORDER: Record<GuideItem['kind'], number> = {
+  checkup: 0,
+  vaccine: 1,
+  milestone: 2,
+  phase: 3,
+  tip: 4,
+  care: 5,
+};
 const kindOrder = (item: GuideItem) => ORDER[item.kind];
 
 export type DueState = 'now' | 'soon' | 'past';
@@ -184,7 +194,7 @@ export function parseMomentForm(form: MomentForm, birthday: string, today: strin
     throw new Error(tr('备注最多 500 个字。', 'The note can be at most 500 characters.'));
   const item = guideItem(form.guide_key);
   return {
-    kind: item && item.kind !== 'phase' && item.kind !== 'tip' ? item.kind : form.kind,
+    kind: item && loggable(item) ? item.kind : form.kind,
     guide_key: item ? item.key : null,
     title,
     occurred_on: form.occurred_on,

@@ -191,26 +191,33 @@ export default function GuideSheet({
             </p>
           )}
           {tab === 'health' &&
-            guide
-              .filter(i => i.kind === 'phase' || i.kind === 'tip')
-              .sort((a, b) => a.from - b.from)
-              .map(item => (
-                <section
-                  key={item.key}
-                  className={`rounded-[22px] p-4 ${item.important ? 'bg-(--alert-pale)' : item.kind === 'phase' ? 'bg-(--warm-pale)' : 'border border-(--line) bg-(--surface)/70'}`}
-                >
-                  <p className="text-xs font-semibold text-(--muted)">{ageWindowLabel(item)}</p>
-                  <h3 className={`mt-0.5 font-semibold ${item.important ? 'text-(--alert)' : ''}`}>
-                    {say(item.title)}
-                  </h3>
-                  {item.body && (
-                    <p className="mt-1.5 text-sm leading-relaxed text-(--ink-2)">{say(item.body)}</p>
-                  )}
-                  <div className="mt-2.5">
-                    <ReadLink source={item.source} />
-                  </div>
-                </section>
-              ))}
+            (['tip', 'care'] as const).flatMap(kind => [
+              <h3 key={kind} className="px-1 pt-2 text-sm font-semibold text-(--muted)">
+                {kind === 'tip'
+                  ? tr('阶段与健康提示', 'Stages & health tips')
+                  : tr('常见问题怎么办', 'Common problems and what to do')}
+              </h3>,
+              ...guide
+                .filter(i => (kind === 'tip' ? i.kind === 'phase' || i.kind === 'tip' : i.kind === 'care'))
+                .sort((a, b) => a.from - b.from)
+                .map(item => (
+                  <section
+                    key={item.key}
+                    className={`rounded-[22px] p-4 ${item.important ? 'bg-(--alert-pale)' : item.kind === 'phase' ? 'bg-(--warm-pale)' : 'border border-(--line) bg-(--surface)/70'}`}
+                  >
+                    <p className="text-xs font-semibold text-(--muted)">{ageWindowLabel(item)}</p>
+                    <h3 className={`mt-0.5 font-semibold ${item.important ? 'text-(--alert)' : ''}`}>
+                      {say(item.title)}
+                    </h3>
+                    {item.body && (
+                      <p className="mt-1.5 text-sm leading-relaxed text-(--ink-2)">{say(item.body)}</p>
+                    )}
+                    <div className="mt-2.5">
+                      <ReadLink source={item.source} />
+                    </div>
+                  </section>
+                )),
+            ])}
           <Disclaimer />
         </div>
       </div>
