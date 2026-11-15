@@ -48,7 +48,7 @@ type Props = {
 /** How many future nodes sit above "today" before the rest fold away. */
 const NEAR = 3;
 
-export const longDate = (date: string) =>
+const longDate = (date: string) =>
   new Date(`${date}T12:00:00`).toLocaleDateString(locale(), {
     year: 'numeric',
     month: 'short',

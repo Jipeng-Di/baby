@@ -2,17 +2,7 @@
 import {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {useRouter} from 'next/navigation';
 import type {User} from '@supabase/supabase-js';
-import {
-  ArrowDown,
-  CalendarDays,
-  ChartNoAxesCombined,
-  CloudOff,
-  House,
-  LayoutDashboard,
-  LoaderCircle,
-  Scale,
-  Sprout,
-} from 'lucide-react';
+import {CalendarDays, ChartNoAxesCombined, CloudOff, Scale, Sprout} from 'lucide-react';
 import {supabase} from '@/lib/supabase';
 import {
   babyName,
@@ -24,27 +14,19 @@ import {
   type GrowthMeasurement,
   type Member,
   type Moment,
-  typeLabels,
 } from '@/lib/types';
 import {datetimeLocal, dayKey} from '@/lib/dates';
 import {tr, useLang} from '@/lib/i18n';
-import {localDateTime, saveTextFile, toCsv} from '@/lib/export';
+import {feedingsCsv, growthCsv, momentsCsv, saveTextFile} from '@/lib/export';
 import {toDisplay, useUnit} from '@/lib/units';
 import {getError} from '@/lib/errors';
 import {byNewest, fetchFeedings, parseFeedForm, time, windowStart, type FeedForm} from '@/lib/feedings';
 import {parseBabyForm, type BabyForm} from '@/lib/baby-form';
-import {
-  enqueue,
-  isNetworkError,
-  mergePending,
-  opsFor,
-  pendingRow,
-  readOutbox,
-  removeOp,
-  writeOutbox,
-  type OutboxOp,
-} from '@/lib/outbox';
-import {guideItem, say, type GuideItem} from '@/lib/guide';
+import {isNetworkError, mergePending, pendingRow, type OutboxOp} from '@/lib/outbox';
+import {useOutbox} from '@/lib/use-outbox';
+import {useFamilyRealtime} from '@/lib/use-realtime';
+import {readLocal, writeLocal} from '@/lib/storage';
+import {say, type GuideItem} from '@/lib/guide';
 import {parseMomentForm} from '@/lib/timeline';
 import {compressPhoto} from '@/lib/image';
 import GrowthView, {type GrowthValues} from './GrowthView';
@@ -61,7 +43,10 @@ import SettingsSheet from './SettingsSheet';
 import FamilyPage from './FamilyPage';
 import Onboarding from './Onboarding';
 import {AuthView, ResetView} from './AuthViews';
-import {Alert, PageIntro, card, primary} from './ui';
+import BottomNav, {rememberView} from './BottomNav';
+import ConfirmDialog from './ConfirmDialog';
+import PullToRefresh from './PullToRefresh';
+import {Alert, FullScreenNote, PageIntro, Segmented, card, primary} from './ui';
 
 export const PAGES = [
   'auth',
@@ -112,23 +97,16 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   const [editing, setEditing] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [avatarDraft, setAvatarDraft] = useState<{baby: Baby; url: string} | null>(null);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-  const pullStart = useRef<{x: number; y: number} | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const pullDistanceRef = useRef(0);
   const [range, setRange] = useState<7 | 30>(7);
   const [now, setNow] = useState(() => Date.now());
-  const [outbox, setOutbox] = useState<OutboxOp[]>([]);
-  const flushing = useRef(false);
   // Earliest fed_at currently held in `feedings`; null means the full history is loaded.
   const loadedSince = useRef<string | null>(null);
   const activeBabies = useMemo(() => babies.filter(b => b.is_active), [babies]);
   const family = families.find(f => f.id === familyId);
-  const showError = (e: unknown) => {
+  const showError = useCallback((e: unknown) => {
     setError(getError(e));
     setSuccess('');
-  };
+  }, []);
   const recorderName = useCallback(
     (userId: string) =>
       userId === user?.id
@@ -158,6 +136,20 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     [],
   );
   const dropMoment = useCallback((id: string) => setMoments(list => list.filter(m => m.id !== id)), []);
+  const {
+    pendingOps,
+    queueOp,
+    dequeue,
+    flush: flushOutbox,
+    pendingCount,
+  } = useOutbox({
+    user,
+    familyId,
+    loaded: !!loadedFamilyId && loadedFamilyId === familyId,
+    tick: now,
+    onSynced: upsertFeeding,
+    onError: setError,
+  });
 
   useEffect(() => {
     let live = true;
@@ -193,7 +185,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       showError(e);
       setReady(true);
     }
-  }, []);
+  }, [showError]);
   const loadFamilies = useCallback(async () => {
     if (!user) return;
     const sb = supabase();
@@ -288,11 +280,6 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     setMomentsUnavailable(false);
     setMoments((data ?? []) as Moment[]);
   }, [familyId]);
-  // Queued offline changes for this user and family, re-read from storage so every caller sees the latest.
-  const pendingOps = useCallback(
-    () => (user && familyId ? opsFor(readOutbox(), user.id, familyId) : []),
-    [user, familyId],
-  );
   // Re-fetch the loaded window (keeps any older months the history page already pulled in).
   const refreshFeedings = useCallback(async () => {
     if (!familyId) return;
@@ -327,7 +314,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setLoading(false);
       setLoadedFamilyId(familyId);
     }
-  }, [familyId, loadBabies, loadMembers, loadGrowth, loadMoments, pendingOps]);
+  }, [familyId, loadBabies, loadMembers, loadGrowth, loadMoments, pendingOps, showError]);
   const ensureFeedingsSince = useCallback(
     async (from: Date) => {
       const loaded = loadedSince.current;
@@ -348,75 +335,11 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         setLoadingOlder(false);
       }
     },
-    [familyId],
+    [familyId, showError],
   );
   const refreshVisible = useCallback(async () => {
     await Promise.all([refreshFeedings(), loadGrowth(), loadMoments()]);
   }, [refreshFeedings, loadGrowth, loadMoments]);
-
-  const queueOp = useCallback((op: OutboxOp) => {
-    const next = enqueue(readOutbox(), op);
-    writeOutbox(next);
-    setOutbox(next);
-  }, []);
-  const dequeue = useCallback((id: string) => {
-    const next = removeOp(readOutbox(), id);
-    writeOutbox(next);
-    setOutbox(next);
-  }, []);
-  // Replays queued offline changes in order; stops at the first network failure and tries again later.
-  const flushOutbox = useCallback(async () => {
-    if (flushing.current || !user || !familyId) return;
-    const ops = pendingOps();
-    if (!ops.length) return;
-    flushing.current = true;
-    try {
-      const sb = supabase();
-      for (const op of ops) {
-        const res =
-          op.kind === 'insert'
-            ? await sb
-                .from('feedings')
-                .insert({...op.payload, id: op.id, created_by: op.userId})
-                .select()
-                .single()
-            : await sb
-                .from('feedings')
-                .update(op.payload)
-                .eq('id', op.id)
-                .eq('family_id', op.payload.family_id)
-                .select()
-                .single();
-        if (res.error) {
-          if (isNetworkError(res.error)) break;
-          dequeue(op.id);
-          // 23505: this insert already reached the server on an earlier attempt.
-          if (res.error.code !== '23505')
-            setError(
-              tr(
-                `有一条离线记录无法同步（${getError(res.error)}），已跳过。`,
-                `An offline record couldn’t be synced (${getError(res.error)}) and was skipped.`,
-              ),
-            );
-          continue;
-        }
-        dequeue(op.id);
-        upsertFeeding(res.data as Feeding);
-      }
-    } finally {
-      flushing.current = false;
-    }
-  }, [user, familyId, pendingOps, dequeue, upsertFeeding]);
-  // Pick up anything queued in an earlier session once the family has loaded.
-  useEffect(() => {
-    setOutbox(readOutbox());
-    if (loadedFamilyId && loadedFamilyId === familyId) flushOutbox().catch(() => {});
-  }, [loadedFamilyId, familyId, flushOutbox]);
-  const pendingCount = user && familyId ? opsFor(outbox, user.id, familyId).length : 0;
-  // While something is queued, retry on each 30-second tick.
-  useEffect(() => {
-    if (pendingCount) flushOutbox().catch(() => {});
-  }, [now, pendingCount, flushOutbox]);
 
   useEffect(() => {
     if (user) {
@@ -429,7 +352,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setFamilyId('');
       setFamiliesLoaded(false);
     }
-  }, [user, loadFamilies]);
+  }, [user, loadFamilies, showError]);
   useEffect(() => {
     if (familyId) loadData();
     else {
@@ -442,86 +365,20 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     }
   }, [familyId, loadData]);
 
-  // Live sync: other family members' changes arrive without pulling to refresh.
-  useEffect(() => {
-    if (!familyId) return;
-    const sb = supabase();
-    const filter = `family_id=eq.${familyId}`;
-    let joined = false;
-    const channel = sb
-      .channel(`family-${familyId}`)
-      .on<Feeding>(
-        'postgres_changes',
-        {event: 'INSERT', schema: 'public', table: 'feedings', filter},
-        payload => upsertFeeding(payload.new),
-      )
-      .on<Feeding>(
-        'postgres_changes',
-        {event: 'UPDATE', schema: 'public', table: 'feedings', filter},
-        payload => upsertFeeding(payload.new),
-      )
-      // Delete events cannot be filtered and only carry the primary key; unknown ids are a no-op.
-      .on<Feeding>('postgres_changes', {event: 'DELETE', schema: 'public', table: 'feedings'}, payload => {
-        if (payload.old.id) dropFeeding(payload.old.id);
-      })
-      .on<GrowthMeasurement>(
-        'postgres_changes',
-        {event: 'INSERT', schema: 'public', table: 'growth_measurements', filter},
-        payload => upsertGrowth(payload.new),
-      )
-      .on<GrowthMeasurement>(
-        'postgres_changes',
-        {event: 'UPDATE', schema: 'public', table: 'growth_measurements', filter},
-        payload => upsertGrowth(payload.new),
-      )
-      .on<GrowthMeasurement>(
-        'postgres_changes',
-        {event: 'DELETE', schema: 'public', table: 'growth_measurements'},
-        payload => {
-          if (payload.old.id) dropGrowth(payload.old.id);
-        },
-      )
-      .on<Moment>(
-        'postgres_changes',
-        {event: 'INSERT', schema: 'public', table: 'baby_moments', filter},
-        payload => upsertMoment(payload.new),
-      )
-      .on<Moment>(
-        'postgres_changes',
-        {event: 'UPDATE', schema: 'public', table: 'baby_moments', filter},
-        payload => upsertMoment(payload.new),
-      )
-      .on<Moment>('postgres_changes', {event: 'DELETE', schema: 'public', table: 'baby_moments'}, payload => {
-        if (payload.old.id) dropMoment(payload.old.id);
-      })
-      .on('postgres_changes', {event: '*', schema: 'public', table: 'babies', filter}, () => {
-        loadBabies().catch(() => {});
-      })
-      .on('postgres_changes', {event: '*', schema: 'public', table: 'family_members', filter}, () => {
-        loadMembers().catch(() => {});
-      })
-      .subscribe(status => {
-        // After a dropped connection (e.g. phone was locked), catch up on anything missed.
-        if (status === 'SUBSCRIBED') {
-          if (joined) refreshVisible().catch(() => {});
-          joined = true;
-        }
-      });
-    return () => {
-      void sb.removeChannel(channel);
-    };
-  }, [
-    familyId,
+  const babiesChanged = useCallback(() => void loadBabies().catch(() => {}), [loadBabies]);
+  const membersChanged = useCallback(() => void loadMembers().catch(() => {}), [loadMembers]);
+  const reconnected = useCallback(() => void refreshVisible().catch(() => {}), [refreshVisible]);
+  useFamilyRealtime(familyId, {
     upsertFeeding,
     dropFeeding,
     upsertGrowth,
     dropGrowth,
     upsertMoment,
     dropMoment,
-    loadBabies,
-    loadMembers,
-    refreshVisible,
-  ]);
+    babiesChanged,
+    membersChanged,
+    reconnected,
+  });
 
   // Sign any moment photos we don't have a URL for yet (signed URLs last an hour; reloads re-sign).
   useEffect(() => {
@@ -576,17 +433,17 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   useEffect(() => {
     if (!ready) return;
     if (!user && !['auth', 'reset-password'].includes(page)) {
-      if (page === 'join' && inviteCode) localStorage.setItem('pendingInvite', inviteCode);
+      if (page === 'join' && inviteCode) writeLocal('pendingInvite', inviteCode);
       router.replace('/auth');
     } else if (user && page === 'auth' && familiesLoaded) {
-      const pending = localStorage.getItem('pendingInvite');
+      const pending = readLocal('pendingInvite');
       router.replace(pending ? `/join/${pending}` : families.length ? '/today' : '/onboarding');
     } else if (user && page === 'onboarding' && familiesLoaded && families.length) {
       router.replace('/today');
     }
   }, [ready, user, page, inviteCode, router, families.length, familiesLoaded]);
   useEffect(() => {
-    if (user && page === 'join' && inviteCode) localStorage.removeItem('pendingInvite');
+    if (user && page === 'join' && inviteCode) writeLocal('pendingInvite', null);
   }, [user, page, inviteCode]);
   async function action(work: () => Promise<void>) {
     if (busy) return;
@@ -650,10 +507,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     return saved;
   }
   function startFeed(baby: Baby, amount: number) {
-    let last: FeedingType = 'formula';
-    try {
-      last = (localStorage.getItem(`feeding-type:${baby.id}`) as FeedingType) || 'formula';
-    } catch {}
+    const last = (readLocal(`feeding-type:${baby.id}`) as FeedingType | null) || 'formula';
     setEditing(null);
     setForm({
       baby_id: baby.id,
@@ -743,9 +597,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         const existing = feedings.find(f => f.id === id);
         upsertFeeding(existing ? {...existing, ...payload} : pendingRow(op));
       }
-      try {
-        localStorage.setItem(`feeding-type:${form.baby_id}`, form.feeding_type);
-      } catch {}
+      writeLocal(`feeding-type:${form.baby_id}`, form.feeding_type);
       setForm(null);
       setEditing(null);
       // New feedings show up in the list straight away, so they need no confirmation message;
@@ -923,63 +775,26 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setSuccess(tr('生长记录已删除。', 'Growth record deleted.'));
     });
   }
+  const stamp = () => dayKey(new Date());
   async function exportFeedings() {
     await action(async () => {
       const rows = await fetchFeedings(familyId, null);
-      const names = new Map(babies.map(b => [b.id, babyName(b)]));
-      const csv = toCsv([
-        [
-          tr('时间', 'Time'),
-          tr('宝宝', 'Baby'),
-          tr('奶量(ml)', 'Amount (ml)'),
-          tr('亲喂(分钟)', 'Nursing (min)'),
-          tr('类型', 'Type'),
-          tr('备注', 'Note'),
-          tr('记录人', 'Logged by'),
-        ],
-        ...[...rows]
-          .reverse()
-          .map(f => [
-            localDateTime(f.fed_at),
-            names.get(f.baby_id) ?? '',
-            f.amount_ml,
-            f.duration_min ?? null,
-            typeLabels[f.feeding_type],
-            f.note,
-            recorderName(f.created_by),
-          ]),
-      ]);
-      await saveTextFile(tr(`喝奶记录-${dayKey(new Date())}.csv`, `feedings-${dayKey(new Date())}.csv`), csv);
+      await saveTextFile(
+        tr(`喝奶记录-${stamp()}.csv`, `feedings-${stamp()}.csv`),
+        feedingsCsv(rows, babies, recorderName),
+      );
       setSuccess(tr(`已导出 ${rows.length} 条喝奶记录。`, `Exported ${rows.length} feeding records.`));
     });
   }
   async function exportGrowth() {
     await action(async () => {
-      const names = new Map(babies.map(b => [b.id, babyName(b)]));
-      const rows = [...measurements].sort((a, b) => a.measured_at.localeCompare(b.measured_at));
-      const num = (v: number | null | undefined) => (v === null || v === undefined ? null : Number(v));
-      const csv = toCsv([
-        [
-          tr('测量日期', 'Date measured'),
-          tr('宝宝', 'Baby'),
-          tr('体重(kg)', 'Weight (kg)'),
-          tr('身长(cm)', 'Length (cm)'),
-          tr('头围(cm)', 'Head (cm)'),
-          tr('备注', 'Note'),
-          tr('记录人', 'Logged by'),
-        ],
-        ...rows.map(m => [
-          m.measured_at,
-          names.get(m.baby_id) ?? '',
-          num(m.weight_kg),
-          num(m.length_cm),
-          num(m.head_cm),
-          m.note,
-          recorderName(m.recorded_by),
-        ]),
-      ]);
-      await saveTextFile(tr(`生长记录-${dayKey(new Date())}.csv`, `growth-${dayKey(new Date())}.csv`), csv);
-      setSuccess(tr(`已导出 ${rows.length} 条生长记录。`, `Exported ${rows.length} growth records.`));
+      await saveTextFile(
+        tr(`生长记录-${stamp()}.csv`, `growth-${stamp()}.csv`),
+        growthCsv(measurements, babies, recorderName),
+      );
+      setSuccess(
+        tr(`已导出 ${measurements.length} 条生长记录。`, `Exported ${measurements.length} growth records.`),
+      );
     });
   }
   function openMoment(baby: Baby, item?: GuideItem) {
@@ -1123,37 +938,11 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   }
   async function exportMoments() {
     await action(async () => {
-      const names = new Map(babies.map(b => [b.id, babyName(b)]));
-      const kinds = {
-        milestone: tr('里程碑', 'Milestone'),
-        first: tr('第一次', 'First'),
-        vaccine: tr('疫苗', 'Vaccine'),
-        checkup: tr('体检', 'Checkup'),
-      };
-      const rows = [...moments].sort((a, b) => a.occurred_on.localeCompare(b.occurred_on));
-      const csv = toCsv([
-        [
-          tr('日期', 'Date'),
-          tr('宝宝', 'Baby'),
-          tr('类型', 'Type'),
-          tr('标题', 'Title'),
-          tr('备注', 'Note'),
-          tr('记录人', 'Logged by'),
-        ],
-        ...rows.map(m => {
-          const item = guideItem(m.guide_key);
-          return [
-            m.occurred_on,
-            names.get(m.baby_id) ?? '',
-            kinds[m.kind],
-            item ? say(item.title) : m.title,
-            m.note,
-            recorderName(m.recorded_by),
-          ];
-        }),
-      ]);
-      await saveTextFile(tr(`成长时刻-${dayKey(new Date())}.csv`, `moments-${dayKey(new Date())}.csv`), csv);
-      setSuccess(tr(`已导出 ${rows.length} 条成长时刻。`, `Exported ${rows.length} moments.`));
+      await saveTextFile(
+        tr(`成长时刻-${stamp()}.csv`, `moments-${stamp()}.csv`),
+        momentsCsv(moments, babies, recorderName),
+      );
+      setSuccess(tr(`已导出 ${moments.length} 条成长时刻。`, `Exported ${moments.length} moments.`));
     });
   }
   async function joinFamily() {
@@ -1173,43 +962,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     }
     router.replace('/auth');
   }
-  function startPull(event: React.TouchEvent) {
-    if (
-      refreshing ||
-      form ||
-      avatarDraft ||
-      deleteId ||
-      momentDraft ||
-      visitDraft ||
-      guideBabyId ||
-      window.scrollY > 0
-    )
-      return;
-    const touch = event.touches[0];
-    pullStart.current = {x: touch.clientX, y: touch.clientY};
-    pullDistanceRef.current = 0;
-    setDragging(true);
-  }
-  function movePull(event: React.TouchEvent) {
-    if (!pullStart.current || refreshing) return;
-    const touch = event.touches[0];
-    const dx = Math.abs(touch.clientX - pullStart.current.x);
-    const dy = touch.clientY - pullStart.current.y;
-    if (dy <= 0 || dx > dy) {
-      pullStart.current = null;
-      pullDistanceRef.current = 0;
-      setDragging(false);
-      setPullDistance(0);
-      return;
-    }
-    const distance = Math.min(88, dy * 0.45);
-    pullDistanceRef.current = distance;
-    setPullDistance(distance);
-    event.preventDefault();
-  }
   async function refreshApp() {
-    setRefreshing(true);
-    setPullDistance(52);
     setError('');
     setSuccess('');
     try {
@@ -1224,32 +977,10 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setNow(Date.now());
     } catch (e) {
       showError(e);
-    } finally {
-      setRefreshing(false);
-      setPullDistance(0);
     }
   }
-  function endPull() {
-    const shouldRefresh = pullDistanceRef.current >= 56;
-    pullStart.current = null;
-    setDragging(false);
-    pullDistanceRef.current = 0;
-    if (shouldRefresh && !refreshing) void refreshApp();
-    else setPullDistance(0);
-  }
-  function cancelPull() {
-    pullStart.current = null;
-    setDragging(false);
-    pullDistanceRef.current = 0;
-    setPullDistance(0);
-  }
   const editingItem = editing ? feedings.find(f => f.id === editing) : undefined;
-  if (!ready)
-    return (
-      <main className="mx-auto flex min-h-screen max-w-lg items-center justify-center text-(--muted)">
-        {tr('正在加载…', 'Loading…')}
-      </main>
-    );
+  if (!ready) return <FullScreenNote text={tr('正在加载…', 'Loading…')} />;
   if (page === 'auth') return <AuthView onError={showError} user={user} />;
   if (page === 'reset-password') return <ResetView onError={showError} />;
   if (!user) return <main className="p-8">{tr('正在打开登录页面…', 'Opening sign-in…')}</main>;
@@ -1276,17 +1007,9 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       </main>
     );
   if (!familiesLoaded || (familyId && loadedFamilyId !== familyId))
-    return (
-      <main className="mx-auto flex min-h-screen max-w-lg items-center justify-center text-(--muted)">
-        {tr('正在加载…', 'Loading…')}
-      </main>
-    );
+    return <FullScreenNote text={tr('正在加载…', 'Loading…')} />;
   if (page === 'onboarding' && familyId)
-    return (
-      <main className="mx-auto flex min-h-screen max-w-lg items-center justify-center text-(--muted)">
-        {tr('正在进入家庭…', 'Opening family…')}
-      </main>
-    );
+    return <FullScreenNote text={tr('正在进入家庭…', 'Opening family…')} />;
   if (!familyId)
     return (
       <Onboarding
@@ -1297,51 +1020,18 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         onJoin={joinFamilyByCode}
       />
     );
-  const nav: [Page, string, typeof House][] = [
-    ['today', tr('今天', 'Today'), LayoutDashboard],
-    ['history', tr('记录', 'Records'), CalendarDays],
-    ['timeline', tr('成长', 'Growth'), Sprout],
-    ['family', tr('家庭', 'Family'), House],
-  ];
+  const sheetOpen = !!(form || avatarDraft || deleteId || momentDraft || visitDraft || guideBabyId);
+  const switchView = (view: Page) => {
+    rememberView(view);
+    router.replace(`/${view}`);
+  };
   return (
     <>
-      <div
-        role="status"
-        aria-live="polite"
-        className="fixed left-1/2 top-[max(12px,env(safe-area-inset-top))] z-0 flex -translate-x-1/2 items-center gap-2 text-sm font-semibold text-(--brand)"
-      >
-        {refreshing ? (
-          <>
-            <LoaderCircle className="animate-spin" size={18} />
-            {tr('正在刷新', 'Refreshing')}
-          </>
-        ) : pullDistance > 0 ? (
-          <>
-            <ArrowDown
-              className={pullDistance >= 56 ? 'rotate-180 transition-transform' : 'transition-transform'}
-              size={18}
-            />
-            {pullDistance >= 56 ? tr('松开刷新', 'Release to refresh') : tr('下拉刷新', 'Pull to refresh')}
-          </>
-        ) : null}
-      </div>
       <div className="relative z-[1] mx-auto min-h-screen max-w-lg border-x border-(--rim)/50 bg-(--surface)/10 shadow-[0_0_70px_rgba(15,50,38,.06)]">
-        <div
-          className="min-h-screen pb-32"
-          style={{
-            transform: `translateY(${pullDistance}px)`,
-            transition: dragging ? 'none' : 'transform 180ms ease',
-          }}
-          onTouchStart={startPull}
-          onTouchMove={movePull}
-          onTouchEnd={endPull}
-          onTouchCancel={cancelPull}
-        >
+        <PullToRefresh disabled={sheetOpen} onRefresh={refreshApp}>
           <main className="space-y-6 px-5 pt-[max(24px,env(safe-area-inset-top))]">
             {error && <Alert text={error} />} {success && <Alert text={success} good />}
-            {loading && !refreshing && (
-              <p className="text-sm text-(--muted)">{tr('正在同步…', 'Syncing…')}</p>
-            )}
+            {loading && <p className="text-sm text-(--muted)">{tr('正在同步…', 'Syncing…')}</p>}
             {pendingCount > 0 && (
               <p
                 role="status"
@@ -1369,101 +1059,55 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
             {(page === 'history' || page === 'trends') && (
               <>
                 <PageIntro title={tr('喂养记录', 'Feeding records')} />
-                <div
-                  className="flex rounded-[18px] border border-(--rim)/80 bg-(--chip)/80 p-1.5 shadow-inner"
-                  role="tablist"
-                  aria-label={tr('历史或趋势', 'History or trends')}
-                >
-                  {(
-                    [
-                      ['history', tr('历史', 'History'), CalendarDays],
-                      ['trends', tr('趋势', 'Trends'), ChartNoAxesCombined],
-                    ] as const
-                  ).map(([key, label, Icon]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      aria-selected={page === key}
-                      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[14px] font-semibold transition ${page === key ? 'bg-(--paper) text-(--brand) shadow-[0_3px_12px_rgba(30,67,52,.09)]' : 'text-(--muted)'}`}
-                      onClick={() => {
-                        try {
-                          localStorage.setItem('records-tab', key);
-                        } catch {}
-                        router.replace(`/${key}`);
-                      }}
-                    >
-                      <Icon size={18} />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-            {page === 'history' && (
-              <>
-                <HistoryCalendar
-                  babies={babies}
-                  feedings={feedings}
-                  onSelect={editFeed}
-                  recorderName={recorderName}
-                  onMonthChange={ensureFeedingsSince}
-                  loadingOlder={loadingOlder}
+                <Segmented
+                  tabs
+                  label={tr('历史或趋势', 'History or trends')}
+                  value={page}
+                  onChange={switchView}
+                  options={[
+                    {value: 'history', label: tr('历史', 'History'), icon: CalendarDays},
+                    {value: 'trends', label: tr('趋势', 'Trends'), icon: ChartNoAxesCombined},
+                  ]}
                 />
               </>
             )}
+            {page === 'history' && (
+              <HistoryCalendar
+                babies={babies}
+                feedings={feedings}
+                onSelect={editFeed}
+                recorderName={recorderName}
+                onMonthChange={ensureFeedingsSince}
+                loadingOlder={loadingOlder}
+              />
+            )}
             {page === 'trends' && (
               <>
-                <div
-                  className="flex rounded-[18px] border border-(--rim)/80 bg-(--chip)/80 p-1.5 shadow-inner"
-                  role="group"
-                  aria-label={tr('趋势天数', 'Trend range')}
-                >
-                  {([7, 30] as const).map(n => (
-                    <button
-                      key={n}
-                      className={`min-h-11 flex-1 rounded-[14px] font-semibold transition ${range === n ? 'bg-(--paper) text-(--brand) shadow-[0_3px_12px_rgba(30,67,52,.09)]' : 'text-(--muted)'}`}
-                      onClick={() => setRange(n)}
-                    >
-                      {tr(`近 ${n} 天`, `Last ${n} days`)}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  label={tr('趋势天数', 'Trend range')}
+                  value={range}
+                  onChange={setRange}
+                  options={([7, 30] as const).map(n => ({
+                    value: n,
+                    label: tr(`近 ${n} 天`, `Last ${n} days`),
+                  }))}
+                />
                 <TrendView babies={activeBabies} feedings={feedings} days={range} />
               </>
             )}
             {(page === 'growth' || page === 'timeline') && (
               <>
                 <PageIntro title={tr('成长', 'Growth')} />
-                <div
-                  className="flex rounded-[18px] border border-(--rim)/80 bg-(--chip)/80 p-1.5 shadow-inner"
-                  role="tablist"
-                  aria-label={tr('时间线或生长曲线', 'Timeline or growth chart')}
-                >
-                  {(
-                    [
-                      ['timeline', tr('时间线', 'Timeline'), Sprout],
-                      ['growth', tr('生长曲线', 'Growth chart'), Scale],
-                    ] as const
-                  ).map(([key, label, Icon]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      aria-selected={page === key}
-                      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[14px] font-semibold transition ${page === key ? 'bg-(--paper) text-(--brand) shadow-[0_3px_12px_rgba(30,67,52,.09)]' : 'text-(--muted)'}`}
-                      onClick={() => {
-                        try {
-                          localStorage.setItem('growth-tab', key);
-                        } catch {}
-                        router.replace(`/${key}`);
-                      }}
-                    >
-                      <Icon size={18} />
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  tabs
+                  label={tr('时间线或生长曲线', 'Timeline or growth chart')}
+                  value={page}
+                  onChange={switchView}
+                  options={[
+                    {value: 'timeline', label: tr('时间线', 'Timeline'), icon: Sprout},
+                    {value: 'growth', label: tr('生长曲线', 'Growth chart'), icon: Scale},
+                  ]}
+                />
               </>
             )}
             {page === 'timeline' && (
@@ -1487,64 +1131,41 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
               />
             )}
             {page === 'growth' && (
+              <GrowthView
+                babies={activeBabies}
+                measurements={measurements}
+                busy={busy}
+                onAdd={addGrowthMeasurement}
+                onDelete={removeGrowthMeasurement}
+                onSetSex={setBabySex}
+              />
+            )}
+            {page === 'family' && (
               <>
-                <GrowthView
-                  babies={activeBabies}
-                  measurements={measurements}
+                <PageIntro title={tr('家庭', 'Family')} />
+                <FamilyPage
+                  family={family}
+                  activeBabies={activeBabies}
+                  avatarUrls={avatarUrls}
+                  members={members}
+                  userId={user.id}
                   busy={busy}
-                  onAdd={addGrowthMeasurement}
-                  onDelete={removeGrowthMeasurement}
-                  onSetSex={setBabySex}
+                  setSuccess={setSuccess}
+                  setError={setError}
+                  chooseAvatar={chooseAvatar}
+                  removeBaby={removeBaby}
+                  onSaveBaby={saveBaby}
+                  exportFeedings={exportFeedings}
+                  exportGrowth={exportGrowth}
+                  exportMoments={exportMoments}
+                  signOut={signOut}
+                  openSettings={() => setSettingsOpen(true)}
                 />
               </>
             )}
-            {page === 'family' && <PageIntro title={tr('家庭', 'Family')} />}
-            {page === 'family' && user && (
-              <FamilyPage
-                family={family}
-                activeBabies={activeBabies}
-                avatarUrls={avatarUrls}
-                members={members}
-                userId={user.id}
-                busy={busy}
-                setSuccess={setSuccess}
-                setError={setError}
-                chooseAvatar={chooseAvatar}
-                removeBaby={removeBaby}
-                onSaveBaby={saveBaby}
-                exportFeedings={exportFeedings}
-                exportGrowth={exportGrowth}
-                exportMoments={exportMoments}
-                signOut={signOut}
-                openSettings={() => setSettingsOpen(true)}
-              />
-            )}
           </main>
-        </div>
-        <nav
-          className="safe-bottom fixed bottom-[max(10px,env(safe-area-inset-bottom))] left-1/2 z-20 flex w-[calc(100%_-_24px)] max-w-[488px] -translate-x-1/2 rounded-[25px] border border-(--rim)/90 bg-(--paper)/92 p-1.5 shadow-[0_12px_40px_rgba(19,50,39,.18)] backdrop-blur-2xl"
-          aria-label={tr('主导航', 'Main navigation')}
-        >
-          {nav.map(([key, label, Icon]) => {
-            const on =
-              page === key ||
-              (key === 'history' && page === 'trends') ||
-              (key === 'timeline' && page === 'growth');
-            return (
-              <button
-                key={key}
-                aria-current={on ? 'page' : undefined}
-                className={`flex min-h-[58px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[19px] text-[11px] transition ${on ? 'bg-(--brand-pale) font-bold text-(--brand)' : 'text-(--soft) active:bg-(--surface-2)'}`}
-                onClick={() =>
-                  router.push(`/${key === 'history' ? recordsTab() : key === 'timeline' ? growthTab() : key}`)
-                }
-              >
-                <Icon size={21} strokeWidth={on ? 2.5 : 1.8} />
-                {label}
-              </button>
-            );
-          })}
-        </nav>
+        </PullToRefresh>
+        <BottomNav page={page} />
         {avatarDraft && (
           <AvatarCropper
             src={avatarDraft.url}
@@ -1619,52 +1240,18 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
           />
         )}
         {deleteId && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#10231b]/50 p-6">
-            <div
-              role="alertdialog"
-              aria-modal="true"
-              aria-label={tr('确认删除', 'Confirm delete')}
-              className={`${card} w-full max-w-sm`}
-            >
-              <h2 className="text-xl font-semibold">{tr('确认删除这条记录？', 'Delete this record?')}</h2>
-              <p className="mt-2 text-sm text-(--muted)">{tr('删除后无法恢复。', 'This can’t be undone.')}</p>
-              {error && <Alert text={error} />}
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button
-                  className="min-h-12 rounded-xl border border-(--line)"
-                  disabled={busy}
-                  onClick={() => setDeleteId(null)}
-                >
-                  {tr('取消', 'Cancel')}
-                </button>
-                <button
-                  className="min-h-12 rounded-xl bg-(--danger) font-semibold text-white"
-                  disabled={busy}
-                  onClick={removeFeeding}
-                >
-                  {busy ? tr('删除中…', 'Deleting…') : tr('删除', 'Delete')}
-                </button>
-              </div>
-            </div>
-          </div>
+          <ConfirmDialog
+            title={tr('确认删除这条记录？', 'Delete this record?')}
+            text={tr('删除后无法恢复。', 'This can’t be undone.')}
+            confirmLabel={tr('删除', 'Delete')}
+            busyLabel={tr('删除中…', 'Deleting…')}
+            busy={busy}
+            error={error}
+            onConfirm={removeFeeding}
+            onCancel={() => setDeleteId(null)}
+          />
         )}
       </div>
     </>
   );
-}
-// The Growth tab reopens whichever of Timeline / Growth chart was used last (Timeline by default).
-function growthTab() {
-  try {
-    return localStorage.getItem('growth-tab') === 'growth' ? 'growth' : 'timeline';
-  } catch {
-    return 'timeline';
-  }
-}
-// The Records tab reopens whichever of History / Trends was used last.
-function recordsTab() {
-  try {
-    return localStorage.getItem('records-tab') === 'trends' ? 'trends' : 'history';
-  } catch {
-    return 'history';
-  }
 }

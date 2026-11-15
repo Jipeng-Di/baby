@@ -6,8 +6,8 @@ import {babyName, typeLabels} from '@/lib/types';
 import {dateLabel, dayKey, timeLabel} from '@/lib/dates';
 import {locale, tr} from '@/lib/i18n';
 import {feedingAmount, minutesLabel, useUnit, volumeLabel, volumeNumber} from '@/lib/units';
+import {input} from './ui';
 
-const input = 'ui-input';
 const weekdayNames = () =>
   tr('日一二三四五六', 'SMTWTFS')
     .split('')

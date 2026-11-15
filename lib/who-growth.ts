@@ -1,6 +1,6 @@
 import {tr} from './i18n';
-export type BabySex = 'female' | 'male';
-export type GrowthStandardRow = readonly [
+import type {BabySex} from './types';
+type GrowthStandardRow = readonly [
   month: number,
   l: number,
   m: number,
@@ -450,12 +450,12 @@ const TERM_DAYS = 280;
 const PRETERM_DAYS = 37 * 7;
 const CORRECT_UNTIL_MONTHS = 24;
 
-export function ageInMonths(birthday: string, measuredAt: string) {
+function ageInMonths(birthday: string, measuredAt: string) {
   const birth = new Date(`${birthday}T12:00:00`);
   const measured = new Date(`${measuredAt}T12:00:00`);
   return Math.max(0, (measured.getTime() - birth.getTime()) / (86400000 * DAYS_PER_MONTH));
 }
-export const needsCorrection = (gestationalDays: number | null | undefined) =>
+const needsCorrection = (gestationalDays: number | null | undefined) =>
   !!gestationalDays && gestationalDays < PRETERM_DAYS;
 // Babies born before 37 weeks are plotted at corrected age (chronological age minus weeks born early) until 24 months.
 export function growthAge(birthday: string, measuredAt: string, gestationalDays?: number | null) {

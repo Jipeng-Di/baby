@@ -1,15 +1,13 @@
 'use client';
 import {useMemo, useState} from 'react';
 import {ChevronDown, X} from 'lucide-react';
-import {GuideRow} from './TimelineView';
+import {GuideRow, type GuideTab} from './TimelineView';
 import {Disclaimer, ReadLink} from './timeline-ui';
 import {guideFor, MILESTONE_AGES, say, type GuideItem} from '@/lib/guide';
 import {ageWindowLabel, buildTimeline, nearMilestoneAges} from '@/lib/timeline';
 import {tr, useLang} from '@/lib/i18n';
 import {regions, useRegion} from '@/lib/region';
 import {babyName, type Baby, type Moment} from '@/lib/types';
-
-type Tab = 'milestone' | 'vaccine' | 'checkup' | 'health';
 
 /** The whole guide for one baby, with everything that can be ticked off. */
 export default function GuideSheet({
@@ -22,7 +20,7 @@ export default function GuideSheet({
   onClose,
 }: {
   baby: Baby;
-  initialTab?: Tab;
+  initialTab?: GuideTab;
   moments: Moment[];
   today: string;
   onLog: (item: GuideItem) => void;
@@ -31,7 +29,7 @@ export default function GuideSheet({
 }) {
   useLang();
   const region = useRegion();
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<GuideTab>(initialTab);
   const [open, setOpen] = useState<string | null>(null);
   const timeline = useMemo(() => buildTimeline(baby, moments, region, today), [baby, moments, region, today]);
   const [ageOpen, setAgeOpen] = useState<number | null>(
@@ -102,7 +100,7 @@ export default function GuideSheet({
                 ['vaccine', tr('疫苗', 'Vaccines')],
                 ['checkup', tr('体检', 'Checkups')],
                 ['health', tr('健康', 'Health')],
-              ] as [Tab, string][]
+              ] as [GuideTab, string][]
             ).map(([key, label]) => (
               <button
                 key={key}

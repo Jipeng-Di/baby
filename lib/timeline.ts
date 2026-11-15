@@ -16,7 +16,7 @@ export function babyAges(baby: Pick<Baby, 'birthday' | 'gestational_age_days'>, 
   return {actual, corrected: c.months, isCorrected: c.corrected};
 }
 /** The age a guide item is measured against: corrected for development, actual for vaccines and checkups. */
-export const ageFor = (item: GuideItem, ages: Ages) => (item.corrected ? ages.corrected : ages.actual);
+const ageFor = (item: GuideItem, ages: Ages) => (item.corrected ? ages.corrected : ages.actual);
 
 export type Timeline = {
   ages: Ages;

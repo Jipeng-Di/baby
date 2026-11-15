@@ -1,6 +1,6 @@
 'use client';
-import {useEffect, useSyncExternalStore} from 'react';
 import {tr} from './i18n';
+import {createPreference} from './preference';
 import type {Region} from './guide';
 
 /** Which country's vaccine and checkup schedule the health guide follows. Per device, like language. */
@@ -17,34 +17,6 @@ export const regions: {value: Region; label: () => string; detail: () => string}
       tr('国家免疫规划（2026 年版）与儿童保健', 'National Immunization Program (2026) & child health checks'),
   },
 ];
-const KEY = 'health-region';
-// Starts as the default so the first client render matches the prerendered HTML.
-let region: Region = 'us';
-const listeners = new Set<() => void>();
-function apply(next: Region) {
-  region = next;
-  listeners.forEach(listener => listener());
-}
-export function setRegion(next: Region) {
-  try {
-    localStorage.setItem(KEY, next);
-  } catch {}
-  apply(next);
-}
-export const getRegion = () => region;
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-export function useRegion() {
-  useEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = localStorage.getItem(KEY);
-    } catch {}
-    if (stored === 'cn' && region !== 'cn') apply('cn');
-  }, []);
-  return useSyncExternalStore(subscribe, getRegion, () => 'us' as Region);
-}
+const pref = createPreference<Region>('health-region', 'us', ['us', 'cn']);
+export const setRegion = pref.set;
+export const useRegion = pref.use;

@@ -29,10 +29,8 @@ import {
 import {dayKey} from '@/lib/dates';
 import {chartPalette, useDarkMode} from '@/lib/theme';
 import {tr, useLang} from '@/lib/i18n';
+import {Segmented, card, input, primary} from './ui';
 
-const input = 'ui-input';
-const card = 'ui-card';
-const primary = 'ui-primary';
 const sexLabels: Record<BabySex, string> = {
   get female() {
     return tr('女孩', 'Girl');
@@ -65,7 +63,7 @@ type GrowthPoint = {
 };
 type PointShapeProps = {cx?: number; cy?: number; payload?: GrowthPoint};
 
-export function formatGrowthValue(metric: GrowthMetric, value: number) {
+function formatGrowthValue(metric: GrowthMetric, value: number) {
   return metric === 'weight'
     ? value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
     : value.toFixed(1).replace(/\.0$/, '');
@@ -268,25 +266,15 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
               </p>
             </section>
           )}
-          <div
-            className="flex rounded-[18px] border border-(--rim)/80 bg-(--chip)/80 p-1.5 shadow-inner"
-            role="group"
-            aria-label={tr('生长指标', 'Growth measure')}
-          >
-            {metrics.map(k => (
-              <button
-                key={k}
-                aria-pressed={metric === k}
-                className={`min-h-11 flex-1 rounded-[14px] font-semibold transition ${metric === k ? 'bg-(--paper) text-(--brand) shadow-[0_3px_12px_rgba(30,67,52,.09)]' : 'text-(--muted)'}`}
-                onClick={() => {
-                  setMetric(k);
-                  setSelectedPoint(null);
-                }}
-              >
-                {metricInfo[k].label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label={tr('生长指标', 'Growth measure')}
+            value={metric}
+            onChange={k => {
+              setMetric(k);
+              setSelectedPoint(null);
+            }}
+            options={metrics.map(k => ({value: k, label: metricInfo[k].label}))}
+          />
           <section className={card}>
             <div className="flex items-start justify-between gap-3">
               <div>

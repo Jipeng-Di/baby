@@ -2,7 +2,7 @@
 import {BookOpen, ExternalLink, Sparkles, Star, Stethoscope, Syringe, type LucideIcon} from 'lucide-react';
 import {say, type GuideItem, type Source} from '@/lib/guide';
 import {tr} from '@/lib/i18n';
-import type {MomentKind} from '@/lib/types';
+import {momentKindLabel, type MomentKind} from '@/lib/types';
 
 /** Look of each kind of timeline entry: icon, accent colour and label. */
 export const KIND: Record<
@@ -14,28 +14,28 @@ export const KIND: Record<
     ink: 'text-(--brand)',
     pale: 'bg-(--brand-pale)',
     dot: 'bg-(--brand-solid)',
-    label: () => tr('里程碑', 'Milestone'),
+    label: momentKindLabel.milestone,
   },
   first: {
     icon: Star,
     ink: 'text-(--warm-ink)',
     pale: 'bg-(--warm-pale)',
     dot: 'bg-(--warm)',
-    label: () => tr('第一次', 'First'),
+    label: momentKindLabel.first,
   },
   vaccine: {
     icon: Syringe,
     ink: 'text-(--sky)',
     pale: 'bg-(--sky-pale)',
     dot: 'bg-(--sky)',
-    label: () => tr('疫苗', 'Vaccine'),
+    label: momentKindLabel.vaccine,
   },
   checkup: {
     icon: Stethoscope,
     ink: 'text-(--plum)',
     pale: 'bg-(--plum-pale)',
     dot: 'bg-(--plum)',
-    label: () => tr('体检', 'Checkup'),
+    label: momentKindLabel.checkup,
   },
 };
 export const itemKind = (item: GuideItem): MomentKind =>

@@ -1,5 +1,6 @@
 'use client';
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {readJson, writeJson} from '@/lib/storage';
 import {getLang, locale, tr, useLang} from '@/lib/i18n';
 import {
   Cloud,
@@ -41,20 +42,6 @@ const CACHE_KEY = 'weather-cache-v1';
 const ENABLED_KEY = 'weather-enabled';
 const UNIT_KEY = 'weather-unit';
 const FRESH_MS = 30 * 60 * 1000;
-
-const read = <T,>(key: string): T | null => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-};
-const write = (key: string, value: unknown) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-};
 
 // WMO weather interpretation codes used by Open-Meteo.
 function describe(code: number, isDay: boolean): {text: string; Icon: LucideIcon} {
@@ -143,8 +130,8 @@ export default function WeatherCard({now}: {now: number}) {
     try {
       const next = await load();
       setWeather(next);
-      write(CACHE_KEY, next);
-      write(ENABLED_KEY, true);
+      writeJson(CACHE_KEY, next);
+      writeJson(ENABLED_KEY, true);
       setStatus('ready');
     } catch (e) {
       const denied =
@@ -152,23 +139,24 @@ export default function WeatherCard({now}: {now: number}) {
         e instanceof GeolocationPositionError &&
         e.code === e.PERMISSION_DENIED;
       setStatus(denied ? 'denied' : 'error');
-      if (denied) write(ENABLED_KEY, false);
+      if (denied) writeJson(ENABLED_KEY, false);
     }
   }, []);
 
   useEffect(() => {
-    const cached = read<Weather>(CACHE_KEY);
+    const cached = readJson<Weather>(CACHE_KEY);
     if (cached) {
       setWeather(cached);
       setStatus('ready');
     }
-    setFahrenheit(read<boolean>(UNIT_KEY) === true);
-    if (read<boolean>(ENABLED_KEY) && (!cached || Date.now() - cached.fetchedAt > FRESH_MS)) void refresh();
+    setFahrenheit(readJson<boolean>(UNIT_KEY) === true);
+    if (readJson<boolean>(ENABLED_KEY) && (!cached || Date.now() - cached.fetchedAt > FRESH_MS))
+      void refresh();
   }, [refresh]);
 
   // `now` ticks every 30s from the parent; refetch once the cached reading is stale.
   useEffect(() => {
-    if (status === 'loading' || !weather || read<boolean>(ENABLED_KEY) !== true) return;
+    if (status === 'loading' || !weather || readJson<boolean>(ENABLED_KEY) !== true) return;
     // Retry at most every 5 minutes so an offline phone doesn't hammer the API.
     if (
       now - weather.fetchedAt > FRESH_MS &&
@@ -184,7 +172,7 @@ export default function WeatherCard({now}: {now: number}) {
       status !== 'ready' ||
       !weather ||
       (weather.placeLang ?? 'zh') === lang ||
-      read<boolean>(ENABLED_KEY) !== true
+      readJson<boolean>(ENABLED_KEY) !== true
     )
       return;
     void refresh();
@@ -193,7 +181,7 @@ export default function WeatherCard({now}: {now: number}) {
   const deg = (c: number) => Math.round(fahrenheit ? (c * 9) / 5 + 32 : c);
   const toggleUnit = () => {
     setFahrenheit(f => {
-      write(UNIT_KEY, !f);
+      writeJson(UNIT_KEY, !f);
       return !f;
     });
   };

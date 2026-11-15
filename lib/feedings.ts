@@ -5,7 +5,7 @@ import {fromDisplay, volumeLabel} from './units';
 import type {Feeding, FeedingType} from './types';
 
 // Feedings older than this are only fetched when the history calendar navigates to them.
-export const FEEDING_WINDOW_DAYS = 60;
+const FEEDING_WINDOW_DAYS = 60;
 export const time = (iso: string) => new Date(iso).getTime();
 export const byNewest = (a: Feeding, b: Feeding) => time(b.fed_at) - time(a.fed_at);
 export function validTime(value: string) {

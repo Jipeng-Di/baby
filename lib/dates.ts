@@ -18,12 +18,6 @@ export function dateLabel(iso: string) {
 export function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString(locale(), {hour: '2-digit', minute: '2-digit', hour12: false});
 }
-export function elapsed(iso: string) {
-  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
-  return mins < 60
-    ? tr(`${mins} 分钟`, `${mins} min`)
-    : tr(`${Math.floor(mins / 60)} 小时 ${mins % 60} 分钟`, `${Math.floor(mins / 60)} h ${mins % 60} min`);
-}
 export function babyAge(birthday: string, today = new Date()) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthday);
   if (!match) return '';
