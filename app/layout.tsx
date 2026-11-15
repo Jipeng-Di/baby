@@ -1,6 +1,7 @@
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import RegisterServiceWorker from '@/components/RegisterServiceWorker';
+import Shell from '@/components/Shell';
 export const metadata: Metadata = {
   title: 'Feedbook · Baby Feeding Log',
   description: 'Log every feeding with ease',
@@ -24,7 +25,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="en">
       <body>
         <RegisterServiceWorker />
-        {children}
+        <Shell>{children}</Shell>
       </body>
     </html>
   );

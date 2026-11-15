@@ -1,5 +1,4 @@
-import App from '@/components/App';
-export default async function Page({params}: {params: Promise<{code: string}>}) {
-  const {code} = await params;
-  return <App page="join" inviteCode={code} />;
+// The view is chosen by Shell (in the root layout) from the pathname, so the App stays mounted.
+export default function Page() {
+  return null;
 }

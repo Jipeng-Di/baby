@@ -63,17 +63,19 @@ import Onboarding from './Onboarding';
 import {AuthView, ResetView} from './AuthViews';
 import {Alert, PageIntro, card, primary} from './ui';
 
-type Page =
-  | 'auth'
-  | 'onboarding'
-  | 'today'
-  | 'history'
-  | 'trends'
-  | 'timeline'
-  | 'growth'
-  | 'family'
-  | 'join'
-  | 'reset-password';
+export const PAGES = [
+  'auth',
+  'onboarding',
+  'today',
+  'history',
+  'trends',
+  'timeline',
+  'growth',
+  'family',
+  'join',
+  'reset-password',
+] as const;
+export type Page = (typeof PAGES)[number];
 
 export default function App({page, inviteCode}: {page: Page; inviteCode?: string}) {
   // Subscribed only so every view re-renders when the language or volume unit changes.
@@ -567,6 +569,10 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     };
   }, [familyId, refreshVisible, flushOutbox]);
 
+  // Warm the tab routes so switching is instant even on a slow connection.
+  useEffect(() => {
+    for (const p of ['today', 'history', 'trends', 'timeline', 'growth', 'family']) router.prefetch(`/${p}`);
+  }, [router]);
   useEffect(() => {
     if (!ready) return;
     if (!user && !['auth', 'reset-password'].includes(page)) {
