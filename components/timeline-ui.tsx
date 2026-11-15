@@ -1,5 +1,5 @@
 'use client';
-import {ExternalLink, Sparkles, Star, Stethoscope, Syringe, type LucideIcon} from 'lucide-react';
+import {BookOpen, ExternalLink, Sparkles, Star, Stethoscope, Syringe, type LucideIcon} from 'lucide-react';
 import {say, type GuideItem, type Source} from '@/lib/guide';
 import {tr} from '@/lib/i18n';
 import type {MomentKind} from '@/lib/types';
@@ -79,5 +79,22 @@ export function Disclaimer() {
         'Guide content is based on public material from the CDC, the American Academy of Pediatrics and China’s National Disease Control and Prevention Administration. It is for reference only and is not medical advice. Every baby develops at their own pace; ask your pediatrician if you’re concerned.',
       )}
     </p>
+  );
+}
+
+/** A "read more" row that opens the article behind a guide item. */
+export function ReadLink({source, label}: {source: Source; label?: string}) {
+  if (!source.url) return <SourceLink source={source} />;
+  return (
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noreferrer"
+      className="flex min-h-11 items-center gap-2.5 rounded-xl bg-(--sky-pale) px-3 text-sm font-semibold text-(--sky) transition active:scale-[.99]"
+    >
+      <BookOpen size={16} className="shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{label ?? say(source.name)}</span>
+      <ExternalLink size={14} className="shrink-0 opacity-70" />
+    </a>
   );
 }

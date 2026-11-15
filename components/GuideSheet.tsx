@@ -2,7 +2,7 @@
 import {useMemo, useState} from 'react';
 import {ChevronDown, X} from 'lucide-react';
 import {GuideRow} from './TimelineView';
-import {Disclaimer, SourceLink} from './timeline-ui';
+import {Disclaimer, ReadLink} from './timeline-ui';
 import {guideFor, MILESTONE_AGES, say, type GuideItem} from '@/lib/guide';
 import {ageWindowLabel, buildTimeline, nearMilestoneAges} from '@/lib/timeline';
 import {tr, useLang} from '@/lib/i18n';
@@ -206,8 +206,8 @@ export default function GuideSheet({
                   {item.body && (
                     <p className="mt-1.5 text-sm leading-relaxed text-(--ink-2)">{say(item.body)}</p>
                   )}
-                  <div className="mt-2">
-                    <SourceLink source={item.source} />
+                  <div className="mt-2.5">
+                    <ReadLink source={item.source} />
                   </div>
                 </section>
               ))}

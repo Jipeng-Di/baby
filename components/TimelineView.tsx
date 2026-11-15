@@ -13,7 +13,7 @@ import {
   Sprout,
 } from 'lucide-react';
 import BabyAvatar from './BabyAvatar';
-import {Disclaimer, KIND, KindBadge, SourceLink, itemKind} from './timeline-ui';
+import {Disclaimer, KIND, KindBadge, ReadLink, SourceLink, itemKind} from './timeline-ui';
 import {AFTER_VACCINE, VACCINES, guideItem, say, type GuideItem} from '@/lib/guide';
 import {
   ageOn,
@@ -327,9 +327,9 @@ function TodayNode({
                     />
                   </button>
                   {isOpen && (
-                    <div className="space-y-2 px-2.5 pb-3 text-sm leading-relaxed text-(--ink-2)">
+                    <div className="space-y-2.5 px-2.5 pb-3 text-sm leading-relaxed text-(--ink-2)">
                       {n.body && <p>{say(n.body)}</p>}
-                      <SourceLink source={n.source} />
+                      <ReadLink source={n.source} />
                     </div>
                   )}
                 </div>
@@ -390,6 +390,8 @@ function UpcomingNode({
   const vaccines = node.items.filter(i => i.kind === 'vaccine');
   const doneCount = node.items.length - node.open.length;
   const when = ageWindowLabel({from: node.from, to: node.from});
+  // The visit checklist, or the CDC checklist the milestones come from.
+  const read = node.kind === 'milestones' ? node.items[0]?.source : checkup?.read;
   const title =
     node.kind === 'milestones'
       ? tr(`${when}前可以留意的进步`, `Things to look out for by ${when}`)
@@ -452,6 +454,14 @@ function UpcomingNode({
                 );
               })}
             </ul>
+            {read && (
+              <div className="mt-2">
+                <ReadLink
+                  source={read}
+                  label={tr(`去之前读一读：${say(read.name)}`, `Before you go: ${say(read.name)}`)}
+                />
+              </div>
+            )}
             {node.kind === 'visit' && node.open.length > 1 && (
               <button
                 type="button"

@@ -59,6 +59,8 @@ export type GuideItem = {
   vaccine?: VaccineId;
   /** Safety information that should stand out. */
   important?: boolean;
+  /** An article worth reading before this (checkups: the AAP visit checklist). */
+  read?: Source;
 };
 
 // ---------------------------------------------------------------------------------------------- sources
@@ -134,6 +136,96 @@ export const SOURCES = {
     'Emotional development, 8–12 months',
     'ages-stages/baby/Pages/Emotional-and-Social-Development-8-12-Months.aspx',
   ),
+  tummy: hc(
+    '仰睡俯玩',
+    'Back to sleep, tummy to play',
+    'ages-stages/baby/sleep/Pages/back-to-sleep-tummy-to-play.aspx',
+  ),
+  shaking: hc(
+    '摇晃婴儿综合征',
+    'Abusive head trauma',
+    'safety-prevention/at-home/Pages/Abusive-Head-Trauma-Shaken-Baby-Syndrome.aspx',
+  ),
+  fussy: hc(
+    '安抚哭闹的宝宝',
+    'Calming a fussy baby',
+    'ages-stages/baby/crying-colic/Pages/Calming-A-Fussy-Baby.aspx',
+  ),
+  flatHead: hc(
+    '头型偏平',
+    'Flat head',
+    'health-issues/conditions/Cleft-Craniofacial/Pages/Positional-Skull-Deformities-and-Torticollis.aspx',
+  ),
+  carSeat: hc(
+    '安全座椅',
+    'Car safety seats',
+    'safety-prevention/on-the-go/Pages/Car-Safety-Seats-Information-for-Families.aspx',
+  ),
+  screens: hc(
+    '2 岁前不看屏幕',
+    'Why to avoid TV before age 2',
+    'family-life/Media/Pages/Why-to-Avoid-TV-Before-Age-2.aspx',
+  ),
+  books: hc(
+    '和宝宝一起看书',
+    'Sharing books with your baby',
+    'ages-stages/baby/Pages/how-to-share-books-with-your-baby.aspx',
+  ),
+  babble: hc(
+    '4–7 个月的语言发展',
+    'Language development, 4–7 months',
+    'ages-stages/baby/Pages/Language-Development-4-to-7-Months.aspx',
+  ),
+  childproof: hc(
+    '家居安全',
+    'Childproofing your home',
+    'safety-prevention/at-home/Pages/Childproofing-Your-Home.aspx',
+  ),
+  walkers: hc(
+    '不要用学步车',
+    'Baby walkers',
+    'safety-prevention/at-home/Pages/Baby-Walkers-A-Dangerous-Choice.aspx',
+  ),
+  choking: hc(
+    '预防噎呛',
+    'Choking prevention',
+    'health-issues/injuries-emergencies/Pages/Choking-Prevention.aspx',
+  ),
+  sun: hc('防晒', 'Sun safety', 'safety-prevention/at-play/Pages/Sun-Safety.aspx'),
+  water: hc(
+    '水边安全',
+    'Water safety',
+    'safety-prevention/at-play/Pages/Water-Safety-And-Young-Children.aspx',
+  ),
+  bottle: hc(
+    '戒奶瓶',
+    'Discontinuing the bottle',
+    'ages-stages/baby/feeding-nutrition/Pages/Discontinuing-the-Bottle.aspx',
+  ),
+  tantrums: hc(
+    '发脾气',
+    'Temper tantrums',
+    'family-life/family-dynamics/communication-discipline/Pages/Temper-Tantrums.aspx',
+  ),
+  toilet: hc(
+    '什么时候开始如厕训练',
+    'The right age to toilet train',
+    'ages-stages/toddler/toilet-training/Pages/the-right-age-to-toilet-train.aspx',
+  ),
+  cnFeeding: {
+    name: {
+      zh: '国家卫健委《婴幼儿喂养健康教育核心信息》',
+      en: 'China NHC infant and young child feeding core messages',
+    },
+    url: 'https://www.nhc.gov.cn/wjw/c100175/202008/49d47853b0884f829fd55773b7297f01.shtml',
+  },
+  cnSleep: {
+    name: {
+      zh: '《0 岁～5 岁儿童睡眠卫生指南》WS/T 579—2017',
+      en: 'China sleep hygiene guideline for ages 0–5 (WS/T 579-2017)',
+    },
+    url: 'https://www.nhc.gov.cn/ewebeditor/uploadfile/2017/10/20171026154305316.pdf',
+  },
   cnDiet: {
     name: {zh: '中国居民膳食指南（2022）', en: 'Chinese Dietary Guidelines (2022)'},
     url: 'http://dg.cnsoc.org/',
@@ -699,6 +791,19 @@ const CN_VACCINES = vaccineItems('cn', [
 ]);
 
 // --------------------------------------------------------------------------------------------- checkups
+/** HealthyChildren.org "Your Checkup Checklist" pages by visit age. */
+const CHECKLIST_PAGES: Record<number, string> = {
+  0.15: 'Your-Checkup-Checklist-Newborn-Visit-2-to-5-days-old.aspx',
+  1: 'Your-Checkup-Checklist-1-Month-Old.aspx',
+  2: 'Your-Checkup-Checklist-2-Months-Old.aspx',
+  4: 'Your-Checkup-Checklist-4-Months-Old.aspx',
+  6: 'Your-Checkup-Checklist-6-Months-Old.aspx',
+  9: 'Your-Checkup-Checklist-9-Months-Old.aspx',
+  12: 'Your-Checkup-Checklist-12-Months-Old.aspx',
+  15: 'Your-Checkup-Checklist-15-Months-Old.aspx',
+  18: 'Your-Checkup-Checklist-18-Months-Old.aspx',
+  24: 'your-checkup-checklist-24-months-2-Years-Old.aspx',
+};
 const US_CHECKUP_BODY: Text = {
   zh: '测体重、身长和头围，检查发育情况，并接种这个月龄的疫苗。可以提前写下想问医生的问题。',
   en: 'Weight, length and head size, a development check, and any vaccines due. Jot down questions for the doctor beforehand.',
@@ -726,6 +831,11 @@ const usCheckups: GuideItem[] = (
   body: US_CHECKUP_BODY,
   source: SOURCES.aapCheckups,
   region: 'us' as const,
+  read: hc(
+    `${at === 0.15 ? '新生儿' : at >= 24 ? `${at / 12} 岁` : `${at} 月龄`}体检清单`,
+    `Checkup checklist: ${at === 0.15 ? 'newborn' : at >= 24 ? `${at / 12} years` : `${at} months`}`,
+    `ages-stages/Your-Childs-Checkups/Pages/${CHECKLIST_PAGES[at]}`,
+  ),
 }));
 const CN_CHECKUP_BODY: Text = {
   zh: '在社区卫生服务中心或乡镇卫生院免费做儿童保健：测量生长、评估发育，并给出喂养和护理建议。',
@@ -844,6 +954,32 @@ const phases: GuideItem[] = [
       en: 'Around 8–10 months many babies become wary of strangers and cry when you leave. It means they know who you are and notice you’ve gone. Short goodbyes and coming back when you said help.',
     },
     source: SOURCES.separation,
+  },
+  {
+    key: 'p.babble',
+    kind: 'phase',
+    from: 4,
+    to: 7,
+    corrected: true,
+    title: {zh: '咿呀学语', en: 'Babbling'},
+    body: {
+      zh: '4–7 个月的宝宝开始发出“ba”“ma”这类音节，会用声音吸引你的注意。多跟他说话、模仿他的声音、给东西起名字，是最好的语言启蒙。',
+      en: 'Between 4 and 7 months babies start making syllables like “ba” and “ma” and use sounds to get your attention. Talking back, copying their sounds and naming things is the best language lesson there is.',
+    },
+    source: SOURCES.babble,
+  },
+  {
+    key: 'p.tantrums',
+    kind: 'phase',
+    from: 18,
+    to: 36,
+    corrected: true,
+    title: {zh: '开始发脾气', en: 'Tantrums begin'},
+    body: {
+      zh: '1 岁半到 3 岁，发脾气很常见：想要的说不清、想做的做不到，就会大哭大闹。保持平静、别跟着发火，等他平静下来再讲道理。累了饿了时更容易发作，提前安排好作息会少很多。',
+      en: 'Tantrums are common from 18 months to 3 years: wanting what they can’t say or do boils over. Stay calm, don’t argue mid-tantrum, and talk once it passes. Tired, hungry toddlers melt down more, so a steady routine helps.',
+    },
+    source: SOURCES.tantrums,
   },
 ];
 const tips: GuideItem[] = [
@@ -994,6 +1130,204 @@ const tips: GuideItem[] = [
       en: 'Breastfeeding can continue to age 2 or beyond. From 12 months you can add dairy such as milk, yoghurt and cheese every day.',
     },
     source: SOURCES.cnDiet,
+  },
+  {
+    key: 't.tummy',
+    kind: 'tip',
+    from: 0,
+    to: 4,
+    corrected: true,
+    title: {zh: '每天趴着玩', en: 'Tummy time every day'},
+    body: {
+      zh: '从回家第一天起，宝宝醒着、有人看着时就可以趴一会儿，每天 2–3 次、每次 3–5 分钟，到 7 周左右累计 15–30 分钟。能锻炼颈背肌肉，也能预防头型偏平。',
+      en: 'From the day you get home, let your baby lie on their tummy while awake and watched: 2–3 times a day for 3–5 minutes, working up to 15–30 minutes a day by 7 weeks. It builds neck and back muscles and helps prevent a flat spot.',
+    },
+    source: SOURCES.tummy,
+  },
+  {
+    key: 't.shaking',
+    kind: 'tip',
+    from: 0,
+    to: 6,
+    corrected: false,
+    title: {zh: '再累也不要摇晃宝宝', en: 'Never shake a baby'},
+    body: {
+      zh: '哭闹是摇晃婴儿综合征最常见的诱因。实在受不了时，把宝宝放在安全的床上，走开几分钟平复一下，再回来。也请告诉所有照顾宝宝的人。',
+      en: 'A crying baby is the most common trigger for abusive head trauma. If you’re at your limit, put the baby down somewhere safe, step away for a few minutes and come back. Tell everyone who cares for your baby too.',
+    },
+    source: SOURCES.shaking,
+  },
+  {
+    key: 't.flathead',
+    kind: 'tip',
+    from: 0,
+    to: 4,
+    corrected: false,
+    title: {zh: '预防头型偏平', en: 'Preventing a flat head'},
+    body: {
+      zh: '仰睡很安全，但长时间同一个方向躺会把后脑压平。每天趴着玩、换着方向抱和喂、隔天换一头睡，少让宝宝长时间待在安全座椅和摇椅里。多数在学会坐以后会自行改善。',
+      en: 'Back sleeping is safe, but always lying the same way can flatten the back of the head. Tummy time, switching the side you hold and feed on, alternating which end of the crib the head is at, and less time in car seats and bouncers all help. Most flat spots round out once babies sit up.',
+    },
+    source: SOURCES.flatHead,
+  },
+  {
+    key: 't.carseat',
+    kind: 'tip',
+    from: 0,
+    to: 24,
+    corrected: false,
+    region: 'us',
+    title: {zh: '安全座椅尽量久地反向安装', en: 'Keep the car seat rear-facing as long as possible'},
+    body: {
+      zh: '从出院第一程开始就坐安全座椅，装在后排、反向安装，直到达到座椅允许的最高身高或体重，通常远超过 2 岁。冬天不要穿厚外套系安全带。',
+      en: 'Use a car seat from the ride home: in the back seat, rear-facing, until your child reaches the seat’s height or weight limit, usually well past age 2. No puffy coats under the harness.',
+    },
+    source: SOURCES.carSeat,
+  },
+  {
+    key: 't.screens',
+    kind: 'tip',
+    from: 0,
+    to: 24,
+    corrected: false,
+    title: {zh: '2 岁前尽量不看屏幕', en: 'No screens before 2, except video calls'},
+    body: {
+      zh: '18–24 个月以前，宝宝从屏幕上学不到什么，反而会挤掉和人互动、玩耍和睡觉的时间。和家人视频通话是例外。大人少在宝宝面前刷手机，也是在给他做榜样。',
+      en: 'Before 18–24 months babies learn little from screens, and screen time crowds out play, people and sleep. Video calls with family are the exception. Keeping your own phone away around the baby sets the example.',
+    },
+    source: SOURCES.screens,
+  },
+  {
+    key: 't.books',
+    kind: 'tip',
+    from: 0,
+    to: 24,
+    corrected: false,
+    title: {zh: '从出生起一起看书', en: 'Share books from birth'},
+    body: {
+      zh: '美国儿科学会建议从出生起就每天给宝宝读书。不在于读懂，而在于语调、节奏和依偎在一起的时间。选色彩鲜明、句子简单的布书或纸板书，反复读同一本也很好。',
+      en: 'The AAP recommends reading with your baby every day from birth. It’s not about understanding the words but the rhythm, the voices and the closeness. Pick sturdy board books with bold pictures, and repeat favourites.',
+    },
+    source: SOURCES.books,
+  },
+  {
+    key: 't.sun',
+    kind: 'tip',
+    from: 0,
+    to: 12,
+    corrected: false,
+    title: {zh: '防晒', en: 'Sun protection'},
+    body: {
+      zh: '6 个月以下尽量避开直射阳光，用遮阳篷、帽子和薄长袖遮挡；小面积暴露的皮肤可以用少量 SPF 15 以上的防晒霜。6 个月以上可以全身使用防晒霜，外出前 15–30 分钟涂。',
+      en: 'Keep babies under 6 months out of direct sun with shade, a hat and light long sleeves; a little SPF 15+ sunscreen is fine on small exposed areas. From 6 months, use sunscreen freely, applied 15–30 minutes before going out.',
+    },
+    source: SOURCES.sun,
+  },
+  {
+    key: 't.childproof',
+    kind: 'tip',
+    from: 5,
+    to: 12,
+    corrected: true,
+    title: {zh: '会翻身、会爬之前做好家居安全', en: 'Childproof before they roll and crawl'},
+    body: {
+      zh: '宝宝学会翻身和爬行往往比你想得早。换尿布时一只手始终扶着；楼梯装护栏，家具和电视固定在墙上，药品、清洁剂和小物件收到够不着的地方，插座装保护盖。',
+      en: 'Babies roll and crawl sooner than you expect. Keep a hand on them at the changing table; gate stairs, anchor furniture and TVs to the wall, lock away medicines, cleaners and small objects, and cover outlets.',
+    },
+    source: SOURCES.childproof,
+  },
+  {
+    key: 't.walkers',
+    kind: 'tip',
+    from: 5,
+    to: 12,
+    corrected: true,
+    title: {zh: '不要用学步车', en: 'Skip the baby walker'},
+    body: {
+      zh: '带轮学步车会让宝宝冲下楼梯、够到危险的东西，并不能帮他更早学会走路，美国儿科学会建议禁用。固定式的跳跳椅或游戏桌更安全。',
+      en: 'Wheeled walkers let babies tumble down stairs and reach dangerous things, and don’t help them walk sooner. The AAP calls for a ban. A stationary activity centre is a safer choice.',
+    },
+    source: SOURCES.walkers,
+  },
+  {
+    key: 't.choking',
+    kind: 'tip',
+    from: 6,
+    to: 36,
+    corrected: true,
+    title: {zh: '预防噎呛', en: 'Choking prevention'},
+    body: {
+      zh: '整颗葡萄、坚果、爆米花、硬糖、整根热狗肠和大块生胡萝卜是最常见的噎呛食物，4 岁前要切小或避免。吃东西时坐好、有人看着，不要边跑边吃。小零件玩具、硬币和纽扣电池收好。',
+      en: 'Whole grapes, nuts, popcorn, hard candy, whole hot dogs and raw carrot chunks are the usual culprits: cut small or avoid until 4. Eat sitting down with an adult watching, never running around. Keep small toy parts, coins and button batteries out of reach.',
+    },
+    source: SOURCES.choking,
+  },
+  {
+    key: 't.water',
+    kind: 'tip',
+    from: 6,
+    to: 36,
+    corrected: false,
+    title: {zh: '水边一步不离', en: 'Within arm’s reach near water'},
+    body: {
+      zh: '几厘米深的水就可能溺水。洗澡时一刻不要走开，洗完立刻放掉水；水桶、浴缸、马桶盖上，泳池四周装围栏。溺水往往是无声的。',
+      en: 'Babies can drown in a few centimetres of water. Never step away during a bath, empty the tub right after, keep buckets empty and toilet lids down, and fence pools on all four sides. Drowning is usually silent.',
+    },
+    source: SOURCES.water,
+  },
+  {
+    key: 't.bottle',
+    kind: 'tip',
+    from: 12,
+    to: 18,
+    corrected: false,
+    title: {zh: '1 岁后逐渐戒掉奶瓶', en: 'Wean off the bottle after 12 months'},
+    body: {
+      zh: '1 岁到 1 岁半之间把奶瓶换成杯子。抱着奶瓶入睡或整天含着奶瓶会导致蛀牙，也容易喝太多奶而不好好吃饭。可以先换掉白天的，再换睡前的。',
+      en: 'Switch from bottle to cup between 12 and 18 months. Falling asleep with a bottle or sipping all day causes tooth decay and crowds out meals. Drop daytime bottles first, the bedtime one last.',
+    },
+    source: SOURCES.bottle,
+  },
+  {
+    key: 't.toilet',
+    kind: 'tip',
+    from: 24,
+    to: 36,
+    corrected: true,
+    title: {zh: '如厕训练：看准备好的信号', en: 'Toilet training: watch for readiness'},
+    body: {
+      zh: '多数孩子在 2–3 岁之间准备好。信号包括：能保持 2 小时尿布干爽、会表示要尿了、能自己脱裤子、对马桶感兴趣。不用赶，搬家、二胎出生这类变化期可以先缓缓。',
+      en: 'Most children are ready between 2 and 3. Signs: staying dry for 2 hours, signalling before they go, pulling pants down, interest in the potty. No rush, and hold off during big changes like a move or a new sibling.',
+    },
+    source: SOURCES.toilet,
+  },
+  {
+    key: 't.feeding.cn',
+    kind: 'tip',
+    from: 0,
+    to: 36,
+    corrected: false,
+    region: 'cn',
+    title: {zh: '国家卫健委婴幼儿喂养 10 条准则', en: 'China NHC’s 10 feeding guidelines'},
+    body: {
+      zh: '0–6 个月纯母乳喂养；满 6 个月起添加辅食并继续母乳到 2 岁；从富含铁的泥糊状食物开始，由少到多、由一种到多种；1 岁内不加盐糖；培养自主进食，不追着喂、不用食物当奖励。',
+      en: 'Exclusive breastfeeding to 6 months; solids from 6 months with breastfeeding to age 2; start with iron-rich purées, adding foods one at a time; no salt or sugar in the first year; encourage self-feeding and never use food as a reward.',
+    },
+    source: SOURCES.cnFeeding,
+  },
+  {
+    key: 't.sleep.cn',
+    kind: 'tip',
+    from: 0,
+    to: 36,
+    corrected: false,
+    region: 'cn',
+    title: {zh: '儿童睡眠卫生指南', en: 'China’s sleep hygiene guideline'},
+    body: {
+      zh: '国家卫健委行业标准建议：婴儿睡在自己的婴儿床里，与父母同一房间；0–3 个月的宝宝每天睡 13–18 小时，之后逐渐减少、集中到夜里。固定的睡前程序和作息比什么都重要。',
+      en: 'China’s national standard advises a baby’s own crib in the parents’ room, and about 13–18 hours of sleep a day at 0–3 months, gradually less and more at night after that. A steady bedtime routine matters most.',
+    },
+    source: SOURCES.cnSleep,
   },
 ];
 
