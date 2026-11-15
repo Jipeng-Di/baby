@@ -7,8 +7,8 @@ export const languages: {value: Lang; label: string}[] = [
   {value: 'en', label: 'English'},
 ];
 const KEY = 'app-language';
-// Starts as Chinese so the first client render matches the prerendered HTML; the stored choice is applied after hydration.
-let lang: Lang = 'zh';
+// Starts as English (the default) so the first client render matches the prerendered HTML; the stored choice is applied after hydration.
+let lang: Lang = 'en';
 const listeners = new Set<() => void>();
 
 function apply(next: Lang) {
@@ -42,7 +42,7 @@ export function useLang() {
     try {
       stored = localStorage.getItem(KEY);
     } catch {}
-    if (stored === 'en' && lang !== 'en') apply('en');
+    if (stored === 'zh' && lang !== 'zh') apply('zh');
   }, []);
-  return useSyncExternalStore(subscribe, getLang, () => 'zh' as Lang);
+  return useSyncExternalStore(subscribe, getLang, () => 'en' as Lang);
 }

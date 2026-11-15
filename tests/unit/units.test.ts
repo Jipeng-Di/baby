@@ -1,6 +1,7 @@
 import {afterEach, describe, expect, it} from 'vitest';
 import {feedingAmount, fromDisplay, setUnit, toDisplay, volumeLabel} from '@/lib/units';
 import {quickAmountsFor} from '@/lib/quick-amounts';
+import {setLang} from '@/lib/i18n';
 import type {Feeding} from '@/lib/types';
 
 afterEach(() => setUnit('ml'));
@@ -20,8 +21,11 @@ describe('volume units', () => {
   });
   it('describes a feeding by volume, else nursing minutes, else pending', () => {
     expect(feedingAmount({amount_ml: 90, duration_min: null})).toBe('90 ml');
+    expect(feedingAmount({amount_ml: null, duration_min: 15})).toBe('15 min');
+    setLang('zh');
     expect(feedingAmount({amount_ml: null, duration_min: 15})).toBe('15 分钟');
     expect(feedingAmount({amount_ml: null, duration_min: null})).toBe('待补充');
+    setLang('en');
   });
 });
 

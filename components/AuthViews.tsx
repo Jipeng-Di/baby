@@ -77,7 +77,7 @@ export function AuthView({onError, user}: {onError: (e: unknown) => void; user: 
           ✳
         </div>
         <p className="mt-8 text-sm font-semibold tracking-[.2em] text-(--brand)">
-          {tr('奶记 · BABY FEEDING', 'BABY FEEDING')}
+          {'FEEDBOOK · BABY FEEDING'}
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight">
           {tr('每一顿奶，', 'Every feed,')}

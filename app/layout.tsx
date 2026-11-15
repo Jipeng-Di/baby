@@ -2,10 +2,10 @@ import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import RegisterServiceWorker from '@/components/RegisterServiceWorker';
 export const metadata: Metadata = {
-  title: '奶记 · 宝宝喝奶记录',
-  description: '轻松记录每一顿奶',
+  title: 'Feedbook · Baby Feeding Log',
+  description: 'Log every feeding with ease',
   manifest: '/manifest.webmanifest',
-  appleWebApp: {capable: true, statusBarStyle: 'default', title: '奶记'},
+  appleWebApp: {capable: true, statusBarStyle: 'default', title: 'Feedbook'},
   icons: {icon: '/icon-192.png', apple: '/icon-180.png'},
 };
 export const viewport: Viewport = {
@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 };
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body>
         <RegisterServiceWorker />
         {children}

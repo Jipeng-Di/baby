@@ -1,5 +1,9 @@
-import {describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 import {babyAge, datetimeLocal, dayKey} from '@/lib/dates';
+import {setLang} from '@/lib/i18n';
+
+beforeEach(() => setLang('zh'));
+afterEach(() => setLang('en'));
 
 describe('babyAge', () => {
   it('counts whole months then remaining days', () => {
@@ -17,6 +21,10 @@ describe('babyAge', () => {
   it('never goes negative and rejects bad input', () => {
     expect(babyAge('2026-12-01', new Date(2026, 10, 1))).toBe('0个月0天');
     expect(babyAge('not a date')).toBe('');
+  });
+  it('uses English by default', () => {
+    setLang('en');
+    expect(babyAge('2025-03-10', new Date(2026, 4, 12))).toBe('1 yr 2 mo 2 d');
   });
 });
 

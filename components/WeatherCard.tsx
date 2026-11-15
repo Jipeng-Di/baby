@@ -305,7 +305,7 @@ export default function WeatherCard({now}: {now: number}) {
           ) : status === 'denied' ? (
             <p className="py-2 text-sm leading-relaxed text-(--muted)">
               {tr(
-                '没有定位权限，无法显示天气。可在手机“设置”中允许浏览器或“奶记”使用位置，然后',
+                '没有定位权限，无法显示天气。可在手机“设置”中允许浏览器或“Feedbook”使用位置，然后',
                 'Location access is off, so weather can’t be shown. Allow location for your browser or this app in your phone’s Settings, then ',
               )}
               <button type="button" className="font-semibold text-(--brand)" onClick={() => void refresh()}>

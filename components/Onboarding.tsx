@@ -27,7 +27,7 @@ export default function Onboarding({error, success, busy, onCreate, onJoin}: Pro
       <div className="pt-12">
         <span className="text-3xl">✳</span>
         <p className="mt-7 text-sm font-semibold tracking-[.2em] text-(--brand)">
-          {tr('欢迎来到奶记', 'Welcome')}
+          {tr('欢迎来到 Feedbook', 'Welcome to Feedbook')}
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight">
           {tr('绑定你的家庭，', 'Link your family,')}
