@@ -15,7 +15,8 @@
     "test:anon": "node --env-file=.env.local tests/anon.mjs",
     "screens": "node --env-file=.env.local tests/screens.mjs",
     "build:native": "CAPACITOR=1 next build --webpack && npx cap sync ios",
-    "ios": "npm run build:native && npx cap open ios"
+    "ios": "npm run build:native && npx cap open ios",
+    "test:scenarios": "node --env-file=.env.local tests/scenarios.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.2",
