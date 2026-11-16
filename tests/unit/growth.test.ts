@@ -1,5 +1,12 @@
 import {describe, expect, it} from 'vitest';
-import {growthAge, growthPercentile, percentileDrift, whoGrowthRows, zScore} from '@/lib/who-growth';
+import {
+  growthAge,
+  growthPercentile,
+  medianAt,
+  percentileDrift,
+  whoGrowthRows,
+  zScore,
+} from '@/lib/who-growth';
 
 describe('WHO growth math', () => {
   it('puts the median at z = 0 / P50', () => {
@@ -7,6 +14,15 @@ describe('WHO growth math', () => {
     // The published P50 is rounded to 0.1 kg, so allow a small difference from the exact LMS median.
     expect(Math.abs(zScore('weight', 'female', 4, p50)!)).toBeLessThan(0.05);
     expect(Math.abs(growthPercentile('weight', 'female', 4, p50)! - 50)).toBeLessThan(2);
+  });
+  it('interpolates the median between whole months', () => {
+    const rows = whoGrowthRows('weight', 'male', 6);
+    const m4 = rows.find(r => r.month === 4)!.p50;
+    const m5 = rows.find(r => r.month === 5)!.p50;
+    const mid = medianAt('weight', 'male', 4.5)!;
+    expect(mid).toBeGreaterThan(m4);
+    expect(mid).toBeLessThan(m5);
+    expect(medianAt('weight', 'male', 61)).toBeNull();
   });
   it('matches the published P3 and P97 lines', () => {
     const row = whoGrowthRows('length', 'male', 12).find(r => r.month === 12)!;

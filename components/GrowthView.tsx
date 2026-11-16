@@ -1,13 +1,13 @@
 'use client';
 import {useEffect, useMemo, useState} from 'react';
 import {
+  Area,
   CartesianGrid,
   ComposedChart,
-  Legend,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
-  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -18,6 +18,7 @@ import {
   gestationLabel,
   growthAge,
   growthPercentile,
+  medianAt,
   metricInfo,
   percentileDrift,
   percentileLabel,
@@ -88,6 +89,10 @@ function summary(item: GrowthMeasurement) {
     .join(' · ');
 }
 const shortDate = (date: string) => date.slice(5).replace('-', '/');
+const signed = (metric: GrowthMetric, delta: number) =>
+  `${delta > 0 ? '+' : delta < 0 ? '−' : '±'}${formatGrowthValue(metric, Math.abs(delta))}`;
+const daysBetween = (a: string, b: string) =>
+  Math.round((new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) / 86400000);
 function driftText(drift: GrowthDrift) {
   const label = metricInfo[drift.metric].label;
   return tr(
@@ -165,8 +170,16 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
     const needed = Math.max(today.months, observed) + 1;
     return Math.min(60, needed <= 12 ? Math.max(3, Math.ceil(needed)) : Math.ceil(needed / 6) * 6);
   }, [today, points]);
+  // Each row carries the two shaded bands as [low, high] ranges, plus the P50 line.
   const rows = useMemo(
-    () => (baby?.sex ? whoGrowthRows(metric, baby.sex, chartMax) : []),
+    () =>
+      baby?.sex
+        ? whoGrowthRows(metric, baby.sex, chartMax).map(row => ({
+            ...row,
+            outer: [row.p3, row.p97] as [number, number],
+            inner: [row.p15, row.p85] as [number, number],
+          }))
+        : [],
     [baby, metric, chartMax],
   );
   const yAxis = useMemo(() => {
@@ -182,7 +195,12 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
     return {domain: [start, end], ticks};
   }, [rows, points]);
   const pointRadius = points.length <= 12 ? 7 : points.length <= 30 ? 6 : 5;
-  const latest = points[points.length - 1];
+  const latest: GrowthPoint | undefined = points[points.length - 1];
+  // The header describes the tapped point, or the latest one until something is tapped.
+  const shown = selectedPoint && points.some(p => p.date === selectedPoint.date) ? selectedPoint : latest;
+  const shownIndex = shown ? points.findIndex(p => p.date === shown.date) : -1;
+  const previous: GrowthPoint | undefined = shownIndex > 0 ? points[shownIndex - 1] : undefined;
+  const median = shown && baby?.sex ? medianAt(metric, baby.sex, shown.month) : null;
   const hasValue = !!(values.weight || values.length || values.head);
   if (!babies.length)
     return (
@@ -284,19 +302,53 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                 </p>
                 <h2 className="mt-1 text-xl font-semibold">{info.title}</h2>
               </div>
-              {latest && latest.percentile !== null ? (
+              {shown && shown.percentile !== null ? (
                 <span className="shrink-0 rounded-full bg-(--brand-pale) px-3 py-2 text-sm font-semibold text-(--brand)">
-                  {percentileLabel(latest.percentile)}
+                  {percentileLabel(shown.percentile)}
                 </span>
               ) : null}
             </div>
-            {latest ? (
-              <div className="mt-5 flex items-end gap-2">
-                <strong className="text-4xl tracking-tight">{formatGrowthValue(metric, latest.value)}</strong>
-                <span className="pb-1 text-(--muted)">
-                  {info.unit} · {latest.date.replaceAll('-', '/')}
-                </span>
-              </div>
+            {shown ? (
+              <>
+                <div className="mt-4 flex items-end gap-2">
+                  <strong className="text-4xl tracking-tight">
+                    {formatGrowthValue(metric, shown.value)}
+                  </strong>
+                  <span className="pb-1 text-(--muted)">{info.unit}</span>
+                  {shown === latest ? (
+                    <span className="mb-1.5 ml-1 rounded-full bg-(--chip) px-2 py-0.5 text-xs font-semibold text-(--muted)">
+                      {tr('最新', 'Latest')}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-sm text-(--muted)">
+                  {shown.date.replaceAll('-', '/')} ·{' '}
+                  {today?.corrected ? tr('矫正月龄', 'corrected age') : tr('月龄', 'age')}{' '}
+                  {formatAge(shown.month)}
+                  {shown.note ? ` · ${shown.note}` : ''}
+                </p>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-2xl bg-(--surface-2) px-3 py-2.5">
+                    <dt className="text-xs text-(--soft)">{tr('较上次', 'Since last time')}</dt>
+                    <dd className="mt-0.5 font-semibold text-(--ink)">
+                      {previous
+                        ? tr(
+                            `${signed(metric, shown.value - previous.value)} ${info.unit} · ${daysBetween(previous.date, shown.date)} 天`,
+                            `${signed(metric, shown.value - previous.value)} ${info.unit} in ${daysBetween(previous.date, shown.date)} d`,
+                          )
+                        : tr('第一条记录', 'First record')}
+                    </dd>
+                  </div>
+                  <div className="rounded-2xl bg-(--surface-2) px-3 py-2.5">
+                    <dt className="text-xs text-(--soft)">{tr('与同龄中位数 P50', 'vs. median P50')}</dt>
+                    <dd className="mt-0.5 font-semibold text-(--ink)">
+                      {median === null
+                        ? tr('暂无', 'n/a')
+                        : `${signed(metric, shown.value - median)} ${info.unit}`}
+                    </dd>
+                  </div>
+                </dl>
+              </>
             ) : (
               <p className="mt-4 text-sm text-(--muted)">
                 {tr(
@@ -306,7 +358,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
               </p>
             )}
             <div
-              className="mt-5 h-80 w-full"
+              className="mt-5 h-72 w-full"
               role="img"
               aria-label={tr(
                 `${babyName(baby)}的${info.title}曲线`,
@@ -314,7 +366,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
               )}
             >
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={rows} margin={{top: 12, right: 8, left: -10, bottom: 8}}>
+                <ComposedChart data={rows} margin={{top: 16, right: 12, left: -14, bottom: 0}}>
                   <CartesianGrid vertical={false} stroke={palette.grid} />
                   <XAxis
                     dataKey="month"
@@ -336,54 +388,46 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                     tick={{fontSize: 11, fill: palette.tick}}
                     tickLine={false}
                     axisLine={false}
-                    unit={info.unit}
                   />
-                  <Tooltip
-                    contentStyle={palette.tooltip}
-                    labelFormatter={v => tr(`${Number(v).toFixed(1)} 个月`, `${Number(v).toFixed(1)} mo`)}
-                    formatter={(v, n) => [`${Number(v).toFixed(1)} ${info.unit}`, n]}
-                  />
-                  <Legend wrapperStyle={{fontSize: 12}} />
-                  <Line
-                    dataKey="p3"
-                    name="P3"
-                    stroke={palette.p3}
-                    strokeWidth={1.5}
-                    dot={false}
+                  <Area
+                    dataKey="outer"
+                    type="monotone"
+                    fill={palette.bandOuter}
+                    stroke="none"
+                    activeDot={false}
                     isAnimationActive={false}
                   />
-                  <Line
-                    dataKey="p15"
-                    name="P15"
-                    stroke={palette.p15}
-                    strokeWidth={1.5}
-                    dot={false}
+                  <Area
+                    dataKey="inner"
+                    type="monotone"
+                    fill={palette.bandInner}
+                    stroke="none"
+                    activeDot={false}
                     isAnimationActive={false}
                   />
                   <Line
                     dataKey="p50"
-                    name="P50"
+                    type="monotone"
                     stroke={palette.brand}
-                    strokeWidth={2.5}
+                    strokeWidth={2}
+                    strokeDasharray="5 4"
                     dot={false}
+                    activeDot={false}
                     isAnimationActive={false}
                   />
-                  <Line
-                    dataKey="p85"
-                    name="P85"
-                    stroke={palette.p15}
-                    strokeWidth={1.5}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    dataKey="p97"
-                    name="P97"
-                    stroke={palette.p3}
-                    strokeWidth={1.5}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
+                  {today && today.months <= chartMax && (
+                    <ReferenceLine
+                      x={today.months}
+                      stroke={palette.tick}
+                      strokeDasharray="2 4"
+                      label={{
+                        value: tr('今天', 'Today'),
+                        position: 'insideTopRight',
+                        fontSize: 11,
+                        fill: palette.tick,
+                      }}
+                    />
+                  )}
                   <Scatter
                     data={points}
                     dataKey="value"
@@ -395,6 +439,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                       const {cx = 0, cy = 0, payload} = shapeProps as PointShapeProps;
                       if (!payload) return <g />;
                       const select = () => setSelectedPoint(payload);
+                      const on = shown?.date === payload.date;
                       return (
                         <g
                           role="button"
@@ -412,11 +457,14 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                             }
                           }}
                         >
-                          <circle cx={cx} cy={cy} r={14} fill="transparent" />
+                          <circle cx={cx} cy={cy} r={16} fill="transparent" />
+                          {on && (
+                            <circle cx={cx} cy={cy} r={pointRadius + 6} fill={palette.point} opacity={0.22} />
+                          )}
                           <circle
                             cx={cx}
                             cy={cy}
-                            r={selectedPoint?.date === payload.date ? pointRadius + 2 : pointRadius}
+                            r={on ? pointRadius + 1 : pointRadius}
                             fill={palette.point}
                             stroke={palette.surface}
                             strokeWidth={3}
@@ -428,35 +476,24 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            {selectedPoint && (
-              <div
-                className="mt-3 rounded-2xl border border-(--warm-line) bg-(--warm-pale) px-4 py-3"
-                role="status"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-(--warm-ink)">
-                      {selectedPoint.date.replaceAll('-', '/')} ·{' '}
-                      {today?.corrected ? tr('矫正月龄', 'Corrected age') : tr('月龄', 'Age')}{' '}
-                      {formatAge(selectedPoint.month)}
-                    </p>
-                    <p className="mt-1 text-sm text-(--warm-ink)">
-                      {selectedPoint.note || tr(`${info.label}记录`, `${info.label} records`)}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <strong className="text-xl text-(--warm-ink)">
-                      {formatGrowthValue(metric, selectedPoint.value)} {info.unit}
-                    </strong>
-                    <p className="text-sm font-semibold text-(--warm-ink)">
-                      {selectedPoint.percentile === null
-                        ? tr('暂无百分位', 'No percentile')
-                        : percentileLabel(selectedPoint.percentile)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            <ul className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs text-(--soft)">
+              <li className="flex items-center gap-1.5">
+                <span className="h-3 w-5 rounded-sm" style={{background: palette.bandInner}} />
+                P15–P85
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="h-3 w-5 rounded-sm" style={{background: palette.bandOuter}} />
+                P3–P97
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="w-5 border-t-2 border-dashed" style={{borderColor: palette.brand}} />
+                P50
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{background: palette.point}} />
+                {tr('记录（点一下查看）', 'Records (tap one)')}
+              </li>
+            </ul>
             <details className="group mt-3 border-t border-(--line) pt-1">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden text-sm font-medium text-(--muted)">
                 <span>

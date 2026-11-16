@@ -481,7 +481,8 @@ function normalCdf(z: number) {
   return 0.5 * (1 + erf(z / Math.SQRT2));
 }
 
-export function zScore(metric: GrowthMetric, sex: BabySex, months: number, value: number) {
+/** LMS parameters interpolated to an exact age in months; null outside the 0–60 month tables. */
+function lms(metric: GrowthMetric, sex: BabySex, months: number) {
   if (months < 0 || months > 60) return null;
   const table = standards[metric][sex];
   const lo = Math.floor(months);
@@ -489,10 +490,21 @@ export function zScore(metric: GrowthMetric, sex: BabySex, months: number, value
   const ratio = months - lo;
   const low = table[lo],
     high = table[hi];
-  const l = low[1] + (high[1] - low[1]) * ratio,
-    m = low[2] + (high[2] - low[2]) * ratio,
-    s = low[3] + (high[3] - low[3]) * ratio;
+  return {
+    l: low[1] + (high[1] - low[1]) * ratio,
+    m: low[2] + (high[2] - low[2]) * ratio,
+    s: low[3] + (high[3] - low[3]) * ratio,
+  };
+}
+export function zScore(metric: GrowthMetric, sex: BabySex, months: number, value: number) {
+  const p = lms(metric, sex, months);
+  if (!p) return null;
+  const {l, m, s} = p;
   return Math.abs(l) < 1e-8 ? Math.log(value / m) / s : (Math.pow(value / m, l) - 1) / (l * s);
+}
+/** The P50 value for this exact age, to compare a measurement against the median. */
+export function medianAt(metric: GrowthMetric, sex: BabySex, months: number) {
+  return lms(metric, sex, months)?.m ?? null;
 }
 export function growthPercentile(metric: GrowthMetric, sex: BabySex, months: number, value: number) {
   const z = zScore(metric, sex, months, value);
