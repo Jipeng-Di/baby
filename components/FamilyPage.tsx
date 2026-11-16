@@ -1,17 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {
-  Camera,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  House,
-  LogOut,
-  Pencil,
-  Plus,
-  Settings,
-  UserMinus,
-} from 'lucide-react';
+import {Camera, ChevronDown, ChevronRight, House, Pencil, Plus, Settings, UserMinus} from 'lucide-react';
 import {babyName, type Baby, type Family, type Member} from '@/lib/types';
 import {dayKey} from '@/lib/dates';
 import {languages, tr, useLang} from '@/lib/i18n';
@@ -34,14 +23,10 @@ type Props = {
   removeBaby: (baby: Baby) => void;
   /** Resolves true when saved, so the form can close. */
   onSaveBaby: (form: BabyForm, editing: Baby | null) => Promise<boolean>;
-  exportFeedings: () => void;
-  exportGrowth: () => void;
-  exportMoments: () => void;
-  signOut: () => void;
   openSettings: () => void;
 };
 
-/** Family tab: current family (code, babies, members), export, account and settings. */
+/** Family tab: current family (code, babies, members) and the way into settings. */
 export default function FamilyPage({
   family,
   activeBabies,
@@ -54,10 +39,6 @@ export default function FamilyPage({
   chooseAvatar,
   removeBaby,
   onSaveBaby,
-  exportFeedings,
-  exportGrowth,
-  exportMoments,
-  signOut,
   openSettings,
 }: Props) {
   const lang = useLang();
@@ -363,54 +344,6 @@ export default function FamilyPage({
           </div>
         </div>
       </section>
-      <details className={`${card} group`}>
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
-          <h2 className="text-xl font-semibold">{tr('数据导出', 'Export data')}</h2>
-          <ChevronDown
-            size={18}
-            className="shrink-0 text-(--soft) transition-transform group-open:rotate-180"
-          />
-        </summary>
-        <p className="mt-1 text-sm leading-relaxed text-(--muted)">
-          {tr(
-            '导出为 CSV，可用 Excel 或 Numbers 打开。换手机前建议备份一次。',
-            'Export as CSV to open in Excel or Numbers. A good backup before switching phones.',
-          )}
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-(--line-strong) bg-(--surface)/75 font-semibold text-(--brand)"
-            disabled={busy}
-            onClick={exportFeedings}
-          >
-            <Download size={18} />
-            {tr('喝奶记录', 'Feedings')}
-          </button>
-          <button
-            className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-(--line-strong) bg-(--surface)/75 font-semibold text-(--brand)"
-            disabled={busy}
-            onClick={exportGrowth}
-          >
-            <Download size={18} />
-            {tr('生长记录', 'Growth records')}
-          </button>
-          <button
-            className="col-span-2 flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-(--line-strong) bg-(--surface)/75 font-semibold text-(--brand)"
-            disabled={busy}
-            onClick={exportMoments}
-          >
-            <Download size={18} />
-            {tr('成长时刻（里程碑、疫苗、体检）', 'Moments (milestones, vaccines, checkups)')}
-          </button>
-        </div>
-      </details>
-      <section className={card}>
-        <h2 className="mb-3 text-xl font-semibold">{tr('账户', 'Account')}</h2>
-        <button className="flex min-h-12 items-center gap-2 text-(--danger)" onClick={signOut}>
-          <LogOut size={18} />
-          {tr('退出登录', 'Sign out')}
-        </button>
-      </section>
       <button
         type="button"
         className={`${card} flex min-h-16 w-full items-center gap-3 text-left`}
@@ -422,7 +355,8 @@ export default function FamilyPage({
         <span className="flex-1">
           <span className="block font-semibold">{tr('设置', 'Settings')}</span>
           <span className="block text-sm text-(--muted)">
-            {tr('语言', 'Language')} · {languages.find(l => l.value === lang)?.label} · {unit}
+            {languages.find(l => l.value === lang)?.label} · {unit} ·{' '}
+            {tr('导出数据 · 退出登录', 'Export · Sign out')}
           </span>
         </span>
         <ChevronRight size={18} className="text-(--faint)" />

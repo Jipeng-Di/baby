@@ -110,6 +110,8 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
   const [date, setDate] = useState(dayKey(new Date()));
   const [note, setNote] = useState('');
   const [showAll, setShowAll] = useState(false);
+  // Once the baby is past a year the full 0–60 month axis squeezes the points; default to the last six months.
+  const [range, setRange] = useState<'recent' | 'all'>('recent');
   const [selectedPoint, setSelectedPoint] = useState<GrowthPoint | null>(null);
   useEffect(() => {
     if (!babies.some(b => b.id === babyId)) setBabyId(babies[0]?.id ?? '');
@@ -170,30 +172,38 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
     const needed = Math.max(today.months, observed) + 1;
     return Math.min(60, needed <= 12 ? Math.max(3, Math.ceil(needed)) : Math.ceil(needed / 6) * 6);
   }, [today, points]);
+  const zoomable = chartMax > 12;
+  const chartMin = zoomable && range === 'recent' && today ? Math.max(0, Math.floor(today.months) - 6) : 0;
   // Each row carries the two shaded bands as [low, high] ranges, plus the P50 line.
   const rows = useMemo(
     () =>
       baby?.sex
-        ? whoGrowthRows(metric, baby.sex, chartMax).map(row => ({
-            ...row,
-            outer: [row.p3, row.p97] as [number, number],
-            inner: [row.p15, row.p85] as [number, number],
-          }))
+        ? whoGrowthRows(metric, baby.sex, chartMax)
+            .filter(row => row.month >= chartMin)
+            .map(row => ({
+              ...row,
+              outer: [row.p3, row.p97] as [number, number],
+              inner: [row.p15, row.p85] as [number, number],
+            }))
         : [],
-    [baby, metric, chartMax],
+    [baby, metric, chartMax, chartMin],
   );
+  const visiblePoints = useMemo(() => points.filter(point => point.month >= chartMin), [points, chartMin]);
+  // The axis starts just below the lowest visible value instead of at zero, so the curves use the whole height.
   const yAxis = useMemo(() => {
-    const all = [...rows.flatMap(row => [row.p3, row.p97]), ...points.map(point => point.value)];
+    const all = [...rows.flatMap(row => [row.p3, row.p97]), ...visiblePoints.map(point => point.value)];
     if (!all.length) return {domain: [0, 20], ticks: [0, 5, 10, 15, 20]};
     const low = Math.min(...all),
       high = Math.max(...all);
-    const step = [1, 2, 5, 10, 20].find(n => (high - low) / n <= 5) ?? 20;
-    const start = Math.max(0, Math.floor(low / step) * step - (low % step < step / 4 ? step : 0));
+    const step = [0.5, 1, 2, 5, 10, 20].find(n => (high - low) / n <= 5) ?? 20;
+    let start = Math.floor(low / step) * step;
+    if (low - start < step * 0.15) start -= step;
+    start = Math.max(0, start);
     const end = Math.ceil(high / step) * step;
     const ticks: number[] = [];
-    for (let t = start; t <= end + 1e-9; t += step) ticks.push(t);
+    for (let t = start; t <= end + 1e-9; t += step) ticks.push(Number(t.toFixed(1)));
     return {domain: [start, end], ticks};
-  }, [rows, points]);
+  }, [rows, visiblePoints]);
   const pointRadius = points.length <= 12 ? 7 : points.length <= 30 ? 6 : 5;
   const latest: GrowthPoint | undefined = points[points.length - 1];
   // The header describes the tapped point, or the latest one until something is tapped.
@@ -357,8 +367,34 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                 )}
               </p>
             )}
+            {zoomable && (
+              <div className="mt-4 flex justify-end">
+                <div
+                  className="flex rounded-full bg-(--chip) p-1"
+                  role="group"
+                  aria-label={tr('时间范围', 'Time range')}
+                >
+                  {(
+                    [
+                      ['recent', tr('近 6 个月', 'Last 6 months')],
+                      ['all', tr('出生至今', 'Since birth')],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={range === key}
+                      className={`min-h-9 rounded-full px-3 text-xs font-semibold transition ${range === key ? 'bg-(--paper) text-(--brand) shadow-sm' : 'text-(--muted)'}`}
+                      onClick={() => setRange(key)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div
-              className="mt-5 h-72 w-full"
+              className="mt-3 h-72 w-full"
               role="img"
               aria-label={tr(
                 `${babyName(baby)}的${info.title}曲线`,
@@ -371,8 +407,8 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                   <XAxis
                     dataKey="month"
                     type="number"
-                    domain={[0, chartMax]}
-                    tickCount={Math.min(chartMax + 1, 7)}
+                    domain={[chartMin, chartMax]}
+                    tickCount={Math.min(chartMax - chartMin + 1, 7)}
                     allowDecimals={false}
                     tick={{fontSize: 11, fill: palette.tick}}
                     tickLine={false}
@@ -429,7 +465,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                     />
                   )}
                   <Scatter
-                    data={points}
+                    data={visiblePoints}
                     dataKey="value"
                     name={tr(`${info.label}记录`, `${info.label} records`)}
                     fill={palette.point}

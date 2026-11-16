@@ -1155,10 +1155,6 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
                   chooseAvatar={chooseAvatar}
                   removeBaby={removeBaby}
                   onSaveBaby={saveBaby}
-                  exportFeedings={exportFeedings}
-                  exportGrowth={exportGrowth}
-                  exportMoments={exportMoments}
-                  signOut={signOut}
                   openSettings={() => setSettingsOpen(true)}
                 />
               </>
@@ -1193,7 +1189,16 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
             setDeleteId={setDeleteId}
           />
         )}
-        {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && (
+          <SettingsSheet
+            busy={busy}
+            onExportFeedings={exportFeedings}
+            onExportGrowth={exportGrowth}
+            onExportMoments={exportMoments}
+            onSignOut={signOut}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
         {guideBabyId && activeBabies.some(b => b.id === guideBabyId) && (
           <GuideSheet
             baby={activeBabies.find(b => b.id === guideBabyId)!}
