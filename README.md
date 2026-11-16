@@ -4,7 +4,7 @@
 
 ## 已部署环境
 
-正式站点：<https://baby-feeding-blush.vercel.app>。生产数据库使用 Supabase 项目 `baby's app`。Vercel 项目为 `juliev42s-projects/baby-feeding`，已连接 GitHub 仓库 `Jipeng-Di/baby` 的 `main` 分支，推送后自动部署。项目设置和 `vercel.json` 均指定 Next.js 框架。
+正式站点：<https://baby-feeding-three.vercel.app>。生产数据库使用 Supabase 项目 `baby's app`（个人组织下）。Vercel 项目为个人团队 `baby-feeding-94a618b1/baby-feeding`，已连接 GitHub 仓库 `Jipeng-Di/baby` 的 `main` 分支，推送后自动部署。项目设置和 `vercel.json` 均指定 Next.js 框架。
 
 ## 本地运行
 
