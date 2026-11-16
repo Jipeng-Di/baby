@@ -13,3 +13,6 @@ out-native
 ios/App/build
 ios/App/App/public
 ios/DerivedData
+
+# iOS archives and exports (scripts/ios-release.sh)
+/build/
