@@ -214,6 +214,8 @@ async function info() {
     'parentalControls',
     'ageAssurance',
     'advertising',
+    'socialMedia',
+    'socialMediaAgeRestricted',
   ];
   await patchLenient('ageRatingDeclarations', decl.id, `/v1/ageRatingDeclarations/${decl.id}`, {
     ...Object.fromEntries(none.map(k => [k, 'NONE'])),
@@ -227,7 +229,11 @@ async function info() {
 async function listing() {
   const v = await editableVersion();
   await api('PATCH', `/v1/appStoreVersions/${v.id}`, {
-    data: {type: 'appStoreVersions', id: v.id, attributes: {copyright: row('Copyright')}},
+    data: {
+      type: 'appStoreVersions',
+      id: v.id,
+      attributes: {copyright: row('Copyright'), versionString: VERSION},
+    },
   });
   const existing = (await get(`/v1/appStoreVersions/${v.id}/appStoreVersionLocalizations`)).data;
   for (const [locale, t] of Object.entries(locales)) {
@@ -313,8 +319,10 @@ async function screenshots() {
 }
 
 async function pricing() {
-  const schedule = await get(`/v1/apps/${app.id}/appPriceSchedule`).catch(() => null);
-  if (schedule?.data) console.log('  price schedule already set, leaving it');
+  // A new app has an empty schedule (no manual prices); only a schedule with a price counts as set.
+  const schedule = await get(`/v1/apps/${app.id}/appPriceSchedule?include=manualPrices`).catch(() => null);
+  if (schedule?.data?.relationships?.manualPrices?.data?.length)
+    console.log('  price schedule already set, leaving it');
   else {
     const points = (await get(`/v1/apps/${app.id}/appPricePoints?filter[territory]=USA&limit=200`)).data;
     const free = points.find(p => Number(p.attributes.customerPrice) === 0);
