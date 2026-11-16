@@ -8,7 +8,7 @@ Re-create them with `scripts/seed-demo-account.mjs`.
 | Field | Value |
 |---|---|
 | Name | Feedbook: Baby Feeding Log |
-| Subtitle (en) | Shared feeding & growth tracker |
+| Subtitle (en) | Shared feeding & growth log |
 | Subtitle (zh-Hans) | 全家共享的喂奶与成长记录 |
 | Bundle ID | com.jipengdi.feedbook |
 | SKU | feedbook-ios-1 |
@@ -16,7 +16,7 @@ Re-create them with `scripts/seed-demo-account.mjs`.
 | Primary category | Health & Fitness |
 | Secondary category | Lifestyle |
 | Content rights | Does not contain, show or access third-party content |
-| Age rating | 4+ (answer "None" to every content question; no unrestricted web access, no gambling, no user-generated content shared publicly) |
+| Age rating | "None" for every content question except Medical or Treatment Information: "Infrequent/Mild" (the growth guide has vaccine schedules and when-to-call-a-doctor tips). No web browsing, gambling, ads, chat or public user content. |
 | Price | Free |
 | Support URL | https://baby-feeding-three.vercel.app/support |
 | Marketing URL | https://baby-feeding-three.vercel.app |
