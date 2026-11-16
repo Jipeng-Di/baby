@@ -4,7 +4,7 @@
 -- Where other members remain, the user's records are handed to the remaining owner (or oldest member), the
 -- user's membership is removed, and ownership of the family passes on if needed.
 -- Photos in the storage bucket are removed by the app before calling this (storage policies allow it);
--- the function also clears any leftover object rows for a family that is being deleted.
+-- (superseded by 202611170002: the function no longer touches storage.objects).
 
 -- The ownership guards on feedings/growth/moments refuse to change the recorder. Let this function through
 -- by setting a transaction-local flag that the guards check.

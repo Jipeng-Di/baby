@@ -392,7 +392,7 @@ function UpcomingNode({
       ? tr(`${when}前可以留意的进步`, `Things to look out for by ${when}`)
       : checkup
         ? say(checkup.title)
-        : tr(`${when}的疫苗`, `Vaccines at ${when}`);
+        : tr(`${when}的疫苗`, when.startsWith('at ') ? `Vaccines ${when}` : `Vaccines at ${when}`);
   const detail =
     node.kind === 'milestones'
       ? tr(`${node.open.length} 项`, `${node.open.length} item${node.open.length > 1 ? 's' : ''}`)

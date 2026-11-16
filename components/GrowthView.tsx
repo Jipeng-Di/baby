@@ -603,7 +603,8 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                     isAnimationActive={false}
                     shape={(shapeProps: unknown) => {
                       const {cx = 0, cy = 0, payload} = shapeProps as PointShapeProps;
-                      if (!payload) return <g />;
+                      // Recharts also calls this with an empty payload (e.g. no records yet).
+                      if (!payload || typeof payload.value !== 'number') return <g />;
                       const select = () => setSelectedPoint(payload);
                       const on = shown?.date === payload.date;
                       return (

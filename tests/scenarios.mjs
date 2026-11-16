@@ -9,6 +9,7 @@
 //   BASE_URL        app to test (default: the production site)
 //   CHROMIUM_PATH   a Chrome/Chromium binary when Playwright has no bundled browser
 //   KEEP=1          leave the test accounts and their data in place afterwards
+//   ONLY=<regex>    run only the scenarios whose name matches
 // Screenshots go to screens/scenarios/ (git-ignored). Every account's data is removed at the end
 // through the in-app delete_account() RPC.
 import {mkdir} from 'node:fs/promises';
@@ -76,16 +77,33 @@ async function deleteAccount(p) {
   const {error} = await sb.auth.signInWithPassword({email: email(p), password: PASSWORD});
   if (error) return `sign-in failed (${error.message})`;
   const {error: e} = await sb.rpc('delete_account');
-  return e ? `delete_account failed (${e.message})` : 'deleted';
+  if (!e) return 'deleted';
+  if (!admin) return `delete_account failed (${e.message})`;
+  // Fallback through the admin API so a broken RPC never leaves test data behind.
+  const uid = (await sb.auth.getUser()).data.user?.id;
+  await admin.from('families').delete().eq('created_by', uid);
+  const {error: d} = await admin.auth.admin.deleteUser(uid);
+  return d
+    ? `delete_account failed (${e.message}); admin delete failed (${d.message})`
+    : `deleted via admin (RPC failed: ${e.message})`;
 }
 
 // ---------- browser helpers
+/** Poll the URL instead of page.waitForURL, which misses Next's client-side replace(). */
+async function waitUrl(page, re, {timeout = 30000} = {}) {
+  const started = Date.now();
+  while (!re.test(page.url())) {
+    if (Date.now() - started > timeout) throw new Error(`waitUrl ${re} timed out at ${page.url()}`);
+    await page.waitForTimeout(200);
+  }
+}
 const browser = await chromium.launch(
   process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {},
 );
 const results = [];
 let shotIndex = 0;
 async function scenario(name, fn) {
+  if (process.env.ONLY && !new RegExp(process.env.ONLY).test(name)) return;
   const context = await browser.newContext({
     viewport: {width: 402, height: 874},
     deviceScaleFactor: 2,
@@ -95,7 +113,7 @@ async function scenario(name, fn) {
   });
   const page = await context.newPage();
   const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
+  page.on('pageerror', e => errors.push(e.stack || e.message));
   page.on('console', m => {
     if (m.type() === 'error' && !/favicon|404/.test(m.text())) errors.push(m.text());
   });
@@ -107,7 +125,13 @@ async function scenario(name, fn) {
     results.push({name, ok: true, ms: Date.now() - started, errors});
   } catch (e) {
     await shot(`FAILED-${name.replace(/\W+/g, '-')}`).catch(() => {});
-    results.push({name, ok: false, ms: Date.now() - started, errors, failure: e.message.split('\n')[0]});
+    results.push({
+      name,
+      ok: false,
+      ms: Date.now() - started,
+      errors,
+      failure: e.message.split('\n').slice(0, 3).join(' | '),
+    });
   }
   await context.close();
 }
@@ -116,14 +140,14 @@ async function signIn(page, p) {
   await page.locator('input[type=email]').fill(email(p));
   await page.locator('input[type=password]').fill(PASSWORD);
   await page.getByRole('button', {name: /^Sign in$/}).click();
-  await page.waitForURL(/\/(today|onboarding)/, {timeout: 30000});
+  await waitUrl(page, /\/(today|onboarding)/, {timeout: 30000});
   await page.waitForTimeout(1200);
 }
 async function createFamily(page, name) {
-  await page.waitForURL(/\/onboarding/, {timeout: 30000});
+  await page.locator('#family-name').waitFor({timeout: 30000});
   await page.locator('#family-name').fill(name);
   await page.getByRole('button', {name: 'Create family'}).click();
-  await page.waitForURL(/\/family/, {timeout: 30000});
+  await waitUrl(page, /\/family/, {timeout: 30000});
   await page.waitForTimeout(800);
 }
 async function addBaby(page, {name, nickname, birthday, sex, weeks, days}) {
@@ -136,7 +160,7 @@ async function addBaby(page, {name, nickname, birthday, sex, weeks, days}) {
     .first()
     .click();
   const form = page.locator('#baby-form');
-  await form.getByLabel('Name').fill(name);
+  await form.getByLabel('Name', {exact: true}).fill(name);
   if (nickname) await form.getByLabel(/Nickname/).fill(nickname);
   await form.getByLabel('Date of birth').fill(birthday);
   if (weeks) {
@@ -160,7 +184,10 @@ async function quickLog(page, ml) {
   await page.getByRole('dialog').waitFor({state: 'hidden', timeout: 15000});
 }
 async function tab(page, name) {
-  await page.getByRole('navigation', {name: 'Main navigation'}).getByRole('button', {name}).click();
+  await page
+    .getByRole('navigation', {name: /Main navigation|主导航/})
+    .getByRole('button', {name})
+    .click();
   await page.waitForTimeout(900);
 }
 async function openSettings(page) {
@@ -181,7 +208,7 @@ await scenario('1 Emily: sign in, create family, add newborn, quick log', async 
   await signIn(page, people[0]);
   await createFamily(page, 'Emily & James');
   await addBaby(page, {name: 'Noah', birthday: ago(21), sex: 'male'});
-  await page.getByRole('button', {name: 'Family code'}).click();
+  await page.getByText('Family code', {exact: true}).click();
   familyCodes.emily = (
     await page
       .locator('strong', {hasText: /^[A-Z0-9]{10}$/})
@@ -199,10 +226,10 @@ await scenario('1 Emily: sign in, create family, add newborn, quick log', async 
 
 await scenario('2 James: joins with the family code and sees Noah’s feed', async ({page, shot}) => {
   await signIn(page, people[1]);
-  await page.waitForURL(/\/onboarding/);
+  await page.locator('#family-code').waitFor({timeout: 30000});
   await page.locator('#family-code').fill(familyCodes.emily);
   await page.getByRole('button', {name: 'Join family'}).click();
-  await page.waitForURL(/\/today/, {timeout: 30000});
+  await waitUrl(page, /\/today/, {timeout: 30000});
   await page.waitForTimeout(1500);
   await page.getByText('Noah').first().waitFor();
   await page.getByText(/by Emily/).waitFor();
@@ -368,6 +395,10 @@ await scenario('8 Hannah: ounces and the Chinese guide region', async ({page, sh
   await page.getByText(/3 oz/).first().waitFor();
   await tab(page, 'Growth');
   await page
+    .getByText(/Vaccines at birth/)
+    .first()
+    .click();
+  await page
     .getByText(/卡介苗|BCG|乙肝|Hep ?B/)
     .first()
     .waitFor();
@@ -409,7 +440,7 @@ await scenario('10 Olivia: deletes her account; sign-in no longer works', async 
   await page.getByRole('button', {name: 'Delete account'}).click();
   await shot('olivia-delete-confirm');
   await page.getByRole('button', {name: 'Delete permanently'}).click();
-  await page.waitForURL(/\/auth/, {timeout: 30000});
+  await waitUrl(page, /\/auth/, {timeout: 30000});
   await page.locator('input[type=email]').fill(email(people[9]));
   await page.locator('input[type=password]').fill(PASSWORD);
   await page.getByRole('button', {name: /^Sign in$/}).click();
