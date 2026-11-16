@@ -6,6 +6,8 @@ import {languages, setLang, tr, useLang} from '@/lib/i18n';
 import {setUnit, useUnit, volumeUnits} from '@/lib/units';
 import {regions, setRegion, useRegion} from '@/lib/region';
 
+const SITE = 'https://baby-feeding-three.vercel.app';
+
 type Option<T extends string> = {value: T; label: string; detail?: string};
 
 /** A row that shows a label and a summary; tapping it unfolds its content. */
@@ -262,8 +264,22 @@ export default function SettingsSheet({
         >
           {tr('删除账号', 'Delete account')}
         </button>
-        <p className="mt-4 text-center text-[11px] text-(--soft)">
-          <a href="/privacy" target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+        {/* Absolute links: inside the iOS app they open in Safari instead of replacing the app's page. */}
+        <p className="mt-4 flex justify-center gap-4 text-center text-[11px] text-(--soft)">
+          <a
+            href={`${SITE}/support`}
+            target="_blank"
+            rel="noreferrer"
+            className="underline-offset-2 hover:underline"
+          >
+            {tr('帮助与支持', 'Help & support')}
+          </a>
+          <a
+            href={`${SITE}/privacy`}
+            target="_blank"
+            rel="noreferrer"
+            className="underline-offset-2 hover:underline"
+          >
             {tr('隐私政策', 'Privacy policy')}
           </a>
         </p>

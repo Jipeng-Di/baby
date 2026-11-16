@@ -26,6 +26,11 @@ export function fromDisplay(value: number) {
 export const volumeNumber = (ml: number) =>
   new Intl.NumberFormat('en-US', {maximumFractionDigits: 1}).format(toDisplay(ml));
 export const volumeLabel = (ml: number) => `${volumeNumber(ml)} ${getUnit()}`;
+/** Short form for tight spaces such as a calendar cell: 1,080 ml becomes 1.08 L. */
+export const compactVolume = (ml: number) =>
+  getUnit() === 'ml' && ml >= 1000
+    ? `${new Intl.NumberFormat('en-US', {maximumFractionDigits: 2}).format(ml / 1000)} L`
+    : volumeLabel(ml);
 export const minutesLabel = (min: number) => tr(`${min} 分钟`, `${min} min`);
 /** What a single feeding amounted to: volume if known, else breastfeeding duration, else pending. */
 export function feedingAmount(item: Pick<Feeding, 'amount_ml' | 'duration_min'>) {

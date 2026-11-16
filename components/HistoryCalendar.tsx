@@ -5,7 +5,7 @@ import type {Baby, Feeding} from '@/lib/types';
 import {babyName, typeLabels} from '@/lib/types';
 import {dateLabel, dayKey, timeLabel} from '@/lib/dates';
 import {locale, tr} from '@/lib/i18n';
-import {feedingAmount, minutesLabel, useUnit, volumeLabel, volumeNumber} from '@/lib/units';
+import {compactVolume, feedingAmount, minutesLabel, useUnit, volumeLabel, volumeNumber} from '@/lib/units';
 import {BabyChips} from './ui';
 import {EmptyArt} from './art';
 
@@ -175,7 +175,7 @@ export default function HistoryCalendar({
                   <>
                     <span className="mt-1 max-w-full truncate text-[10px] font-bold leading-none text-(--brand)">
                       {day.hasAmount
-                        ? `${volumeNumber(day.total)} ${unit}`
+                        ? compactVolume(day.total)
                         : day.minutes
                           ? minutesLabel(day.minutes)
                           : `— ${unit}`}
