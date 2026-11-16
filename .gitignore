@@ -9,3 +9,7 @@ export_narababy_*.csv
 .narababy_*.csv
 narababy_*_import.csv
 /screens
+out-native
+ios/App/build
+ios/App/App/public
+ios/DerivedData

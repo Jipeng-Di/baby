@@ -11,5 +11,7 @@ export default function Shell({children}: {children: React.ReactNode}) {
   const [first, second] = pathname.split('/').filter(Boolean);
   if (first === 'join' && second) return <App page="join" inviteCode={decodeURIComponent(second)} />;
   if (first && !second && (PAGES as readonly string[]).includes(first)) return <App page={first as Page} />;
+  // The root URL is the Today tab, so the native app (which opens index.html) lands on it without a redirect.
+  if (!first) return <App page="today" />;
   return <>{children}</>;
 }

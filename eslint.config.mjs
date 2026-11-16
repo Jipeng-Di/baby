@@ -4,7 +4,7 @@ import nextTs from 'eslint-config-next/typescript';
 const config = [
   ...nextVitals,
   ...nextTs,
-  {ignores: ['.next/**', 'node_modules/**', 'public/**', 'next-env.d.ts']},
+  {ignores: ['.next/**', 'node_modules/**', 'public/**', 'next-env.d.ts', 'out-native/**', 'ios/**']},
   {
     rules: {
       // Avatars are signed Supabase URLs and blob previews; next/image adds nothing here.

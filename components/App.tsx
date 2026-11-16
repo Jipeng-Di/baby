@@ -962,6 +962,31 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     }
     router.replace('/auth');
   }
+  /** Removes the account (App Store 5.1.1). Photos go first, because only a signed-in member may delete them. */
+  async function deleteAccount() {
+    if (!user) return;
+    await action(async () => {
+      const sb = supabase();
+      if (familyId && members.length <= 1) {
+        const bucket = sb.storage.from('baby-avatars');
+        const paths: string[] = [];
+        const {data: top} = await bucket.list(familyId, {limit: 1000});
+        for (const entry of top ?? []) {
+          if (entry.id) paths.push(`${familyId}/${entry.name}`);
+          else {
+            const {data: inner} = await bucket.list(`${familyId}/${entry.name}`, {limit: 1000});
+            for (const file of inner ?? []) if (file.id) paths.push(`${familyId}/${entry.name}/${file.name}`);
+          }
+        }
+        if (paths.length) await bucket.remove(paths);
+      }
+      const {error: e} = await sb.rpc('delete_account');
+      if (e) throw e;
+      await sb.auth.signOut({scope: 'local'});
+      setSettingsOpen(false);
+      router.replace('/auth');
+    });
+  }
   async function refreshApp() {
     setError('');
     setSuccess('');
@@ -1197,6 +1222,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
             onExportGrowth={exportGrowth}
             onExportMoments={exportMoments}
             onSignOut={signOut}
+            onDeleteAccount={deleteAccount}
             onClose={() => setSettingsOpen(false)}
           />
         )}

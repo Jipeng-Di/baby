@@ -13,9 +13,18 @@
     "check": "tsc --noEmit && eslint . && vitest run",
     "test:rls": "node tests/rls.mjs",
     "test:anon": "node --env-file=.env.local tests/anon.mjs",
-    "screens": "node --env-file=.env.local tests/screens.mjs"
+    "screens": "node --env-file=.env.local tests/screens.mjs",
+    "build:native": "CAPACITOR=1 next build --webpack && npx cap sync ios",
+    "ios": "npm run build:native && npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/ios": "^7.6.10",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@supabase/supabase-js": "^2.57.0",
     "lucide-react": "^0.468.0",
     "next": "^16.0.0",
@@ -24,6 +33,8 @@
     "recharts": "^3.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^7.6.10",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

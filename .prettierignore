@@ -5,3 +5,6 @@ supabase
 *.md
 package-lock.json
 next-env.d.ts
+out-native
+ios
+assets

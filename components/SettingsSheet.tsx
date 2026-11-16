@@ -1,5 +1,6 @@
 'use client';
 import {useState} from 'react';
+import ConfirmDialog from './ConfirmDialog';
 import {Check, ChevronDown, Download, Languages, LogOut, Milk, Stethoscope, UserRound, X} from 'lucide-react';
 import {languages, setLang, tr, useLang} from '@/lib/i18n';
 import {setUnit, useUnit, volumeUnits} from '@/lib/units';
@@ -103,6 +104,7 @@ export default function SettingsSheet({
   onExportGrowth,
   onExportMoments,
   onSignOut,
+  onDeleteAccount,
   onClose,
 }: {
   /** The signed-in account, shown next to the sign-out button. */
@@ -112,6 +114,7 @@ export default function SettingsSheet({
   onExportGrowth: () => Promise<void>;
   onExportMoments: () => Promise<void>;
   onSignOut: () => void;
+  onDeleteAccount: () => Promise<void>;
   onClose: () => void;
 }) {
   const lang = useLang();
@@ -119,6 +122,7 @@ export default function SettingsSheet({
   const region = useRegion();
   type Section = 'lang' | 'unit' | 'region' | 'export';
   const [open, setOpen] = useState<Section | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const toggle = (key: Section) => () => setOpen(current => (current === key ? null : key));
   const exports: [string, () => Promise<void>][] = [
     [tr('喝奶记录', 'Feedings'), onExportFeedings],
@@ -251,7 +255,36 @@ export default function SettingsSheet({
             {tr('退出登录', 'Sign out')}
           </button>
         </div>
+        <button
+          type="button"
+          className="mt-3 min-h-11 w-full text-center text-xs text-(--soft) underline-offset-2 hover:underline"
+          onClick={() => setConfirmDelete(true)}
+        >
+          {tr('删除账号', 'Delete account')}
+        </button>
+        <p className="mt-4 text-center text-[11px] text-(--soft)">
+          <a href="/privacy" target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+            {tr('隐私政策', 'Privacy policy')}
+          </a>
+        </p>
       </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          title={tr('删除账号？', 'Delete your account?')}
+          text={tr(
+            '你的账号会被永久删除。如果你是家庭里唯一的成员，这个家庭的全部记录和照片也会一起删除，无法恢复。',
+            'Your account will be permanently deleted. If you are the only member of your family, all of its records and photos are deleted too. This can’t be undone.',
+          )}
+          confirmLabel={tr('永久删除', 'Delete permanently')}
+          busyLabel={tr('删除中…', 'Deleting…')}
+          busy={busy}
+          onConfirm={async () => {
+            await onDeleteAccount();
+            setConfirmDelete(false);
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
     </div>
   );
 }
