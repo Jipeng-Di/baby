@@ -67,4 +67,8 @@
 
 ## 结构
 
+## iOS 应用（App Store）
+
+`npm run build:native` 用 `CAPACITOR=1` 做静态导出到 `out-native/`，再 `cap sync` 复制进 `ios/App/App/public`；`npm run ios` 之后在 Xcode 里打开 `ios/App/App.xcodeproj`（Swift Package Manager，不需要 CocoaPods）。Bundle ID 为 `com.jipengdi.feedbook`，图标和启动图由 `assets/icon.png`、`assets/splash.png` 经 `@capacitor/assets` 生成。应用采用 UIScene 生命周期（`SceneDelegate.swift`，Xcode 27 要求）。上架所需：设置里的"删除账号"（`202611170001_delete_account.sql` 的 `delete_account()`），隐私政策页 `/privacy`。
+
 `app/` App Router 路由（页面本身为空，由根布局里的 `components/Shell.tsx` 按路径挑选视图，切换页签不重新加载数据）；`components/App.tsx` 持有数据和各项操作，实时同步在 `lib/use-realtime.ts`，离线队列在 `lib/use-outbox.ts`，各页面与弹窗在 `components/` 下独立成文件（`TodayView`、`HistoryCalendar`、`TrendView`、`GrowthView`、`TimelineView`、`FamilyPage`、`FeedSheet`、`SettingsSheet`、`BottomNav`、`PullToRefresh`、`Onboarding`、`AuthViews`，共用控件在 `ui.tsx`）；`lib/` 纯逻辑（类型、时间、单位、表单校验、CSV 导出、WHO 生长标准；本机偏好设置统一走 `preference.ts`）和 Supabase 客户端；`supabase/migrations/` 数据库迁移；`tests/rls.mjs` 跨家庭权限集成测试；`tests/unit/` 单元测试；`tests/screens.mjs` 登录后截图；`public/` PWA manifest 与图标。

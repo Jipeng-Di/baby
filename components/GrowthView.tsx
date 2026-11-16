@@ -30,7 +30,7 @@ import {
 import {dayKey} from '@/lib/dates';
 import {chartPalette, useDarkMode} from '@/lib/theme';
 import {tr, useLang} from '@/lib/i18n';
-import {Segmented, card, input, primary} from './ui';
+import {BabyChips, EmptyState, Segmented, card, input, primary} from './ui';
 
 const sexLabels: Record<BabySex, string> = {
   get female() {
@@ -306,36 +306,27 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
   const hasValue = !!(values.weight || values.length || values.head);
   if (!babies.length)
     return (
-      <div className={`${card} py-9 text-center`}>
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-(--brand-pale)">
-          <Plus className="text-(--brand)" />
-        </div>
-        <p className="mt-4 text-(--muted)">
-          {tr('添加宝宝后即可记录生长数据。', 'Add a baby to record growth.')}
-        </p>
-      </div>
+      <EmptyState
+        kind="growth"
+        title={tr('还没有宝宝', 'No baby yet')}
+        text={tr(
+          '在“家庭”页添加宝宝后即可记录体重、身长和头围。',
+          'Add a baby on the Family page to record weight, length and head size.',
+        )}
+      />
     );
   return (
     <>
-      <div
-        className="no-scrollbar flex gap-2 overflow-x-auto pb-1"
-        aria-label={tr('选择宝宝', 'Choose baby')}
-      >
-        {babies.map(b => (
-          <button
-            key={b.id}
-            aria-pressed={baby?.id === b.id}
-            className={`min-h-11 shrink-0 rounded-full px-5 font-semibold ${baby?.id === b.id ? 'bg-(--brand-solid) text-white' : 'border border-(--line) bg-(--surface) text-(--muted)'}`}
-            onClick={() => {
-              setBabyId(b.id);
-              setSelectedPoint(null);
-              setView(null);
-            }}
-          >
-            {babyName(b)}
-          </button>
-        ))}
-      </div>
+      <BabyChips
+        babies={babies}
+        value={baby?.id ?? ''}
+        onChange={id => {
+          setBabyId(id);
+          setSelectedPoint(null);
+          setView(null);
+        }}
+        label={tr('选择宝宝', 'Choose baby')}
+      />
       {!baby?.sex ? (
         <section className={card}>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-(--brand-pale)">

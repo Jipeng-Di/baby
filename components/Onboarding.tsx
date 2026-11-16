@@ -2,6 +2,7 @@
 import {useState} from 'react';
 import {tr} from '@/lib/i18n';
 import {Alert, card, input, primary} from './ui';
+import {HeroArt} from './art';
 
 type Props = {
   error: string;
@@ -24,9 +25,9 @@ export default function Onboarding({error, success, busy, onCreate, onJoin}: Pro
   }
   return (
     <main className="mx-auto min-h-screen max-w-lg p-6 pb-16">
-      <div className="pt-12">
-        <img src="/icon.svg" alt="" className="h-12 w-12 rounded-[14px]" />
-        <p className="mt-7 text-sm font-semibold tracking-[.2em] text-(--brand)">
+      <div className="pt-6">
+        <HeroArt className="-mx-2 h-40 w-auto max-w-full" />
+        <p className="mt-2 text-sm font-semibold tracking-[.2em] text-(--brand)">
           {tr('欢迎来到 Feedbook', 'Welcome to Feedbook')}
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight">

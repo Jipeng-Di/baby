@@ -6,7 +6,8 @@ import {babyName, typeLabels} from '@/lib/types';
 import {dateLabel, dayKey, timeLabel} from '@/lib/dates';
 import {locale, tr} from '@/lib/i18n';
 import {feedingAmount, minutesLabel, useUnit, volumeLabel, volumeNumber} from '@/lib/units';
-import {input} from './ui';
+import {BabyChips} from './ui';
+import {EmptyArt} from './art';
 
 const weekdayNames = () =>
   tr('日一二三四五六', 'SMTWTFS')
@@ -96,23 +97,12 @@ export default function HistoryCalendar({
   }
   return (
     <>
-      <label className="block text-sm font-medium">
-        {tr('选择宝宝', 'Choose baby')}
-        <select
-          className={`${input} mt-2`}
-          value={selectedBabyId}
-          disabled={babies.length === 0}
-          onChange={event => setBabyId(event.target.value)}
-        >
-          {babies.length === 0 && <option value="">{tr('暂无宝宝', 'No babies')}</option>}
-          {babies.map(baby => (
-            <option key={baby.id} value={baby.id}>
-              {babyName(baby)}
-              {baby.is_active ? '' : tr('（已移出）', ' (removed)')}
-            </option>
-          ))}
-        </select>
-      </label>
+      <BabyChips
+        babies={babies}
+        value={selectedBabyId}
+        onChange={setBabyId}
+        label={tr('选择宝宝', 'Choose baby')}
+      />
       <section className="ui-card p-3">
         <div className="flex items-center justify-between px-1 py-2">
           <button
@@ -257,8 +247,9 @@ export default function HistoryCalendar({
             })}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-(--line) bg-(--surface)/60 px-5 py-8 text-center text-sm text-(--soft)">
-            {tr('这一天没有喝奶记录', 'No feedings on this day')}
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-(--line) bg-(--surface)/60 px-5 py-5 text-center text-sm text-(--soft)">
+            <EmptyArt kind="calendar" className="h-20 w-28" />
+            <span className="mt-1">{tr('这一天没有喝奶记录', 'No feedings on this day')}</span>
           </div>
         )}
       </section>

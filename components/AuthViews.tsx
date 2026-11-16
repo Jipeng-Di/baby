@@ -6,6 +6,7 @@ import {supabase} from '@/lib/supabase';
 import {tr} from '@/lib/i18n';
 import {getError} from '@/lib/errors';
 import {Alert, card, input, primary} from './ui';
+import {HeroArt} from './art';
 
 export function AuthView({onError, user}: {onError: (e: unknown) => void; user: User | null}) {
   const router = useRouter();
@@ -72,9 +73,9 @@ export function AuthView({onError, user}: {onError: (e: unknown) => void; user: 
   }
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center p-6">
-      <div className="mb-10">
-        <img src="/icon.svg" alt="" className="h-16 w-16 rounded-[18px]" />
-        <p className="mt-8 text-sm font-semibold tracking-[.2em] text-(--brand)">
+      <div className="mb-8">
+        <HeroArt className="-mx-2 -mt-4 h-44 w-auto max-w-full" />
+        <p className="mt-2 text-sm font-semibold tracking-[.2em] text-(--brand)">
           {'FEEDBOOK · BABY FEEDING'}
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight">

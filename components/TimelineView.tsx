@@ -13,6 +13,8 @@ import {
   Sprout,
 } from 'lucide-react';
 import BabyAvatar from './BabyAvatar';
+import {BabyChips} from './ui';
+import {EmptyArt} from './art';
 import {Disclaimer, KIND, KindBadge, ReadLink, SourceLink, itemKind} from './timeline-ui';
 import {AFTER_VACCINE, VACCINES, guideItem, say, type GuideItem} from '@/lib/guide';
 import {
@@ -97,29 +99,16 @@ export default function TimelineView({
   const far = timeline.upcoming.slice(NEAR).reverse();
   return (
     <>
-      {babies.length > 1 && (
-        <div
-          className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
-          aria-label={tr('选择宝宝', 'Choose baby')}
-        >
-          {babies.map(b => (
-            <button
-              key={b.id}
-              aria-pressed={baby.id === b.id}
-              className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full py-1 pl-1 pr-4 font-semibold transition ${baby.id === b.id ? 'bg-(--brand-solid) text-white shadow-[0_6px_16px_rgba(19,105,79,.22)]' : 'border border-(--line) bg-(--surface) text-(--muted)'}`}
-              onClick={() => {
-                setBabyId(b.id);
-                setShowFar(false);
-              }}
-            >
-              <span className="scale-[.82]">
-                <BabyAvatar baby={b} url={avatarUrls[b.id]} small onTint={baby.id === b.id} />
-              </span>
-              {babyName(b)}
-            </button>
-          ))}
-        </div>
-      )}
+      <BabyChips
+        babies={babies}
+        value={baby.id}
+        avatarUrls={avatarUrls}
+        onChange={id => {
+          setBabyId(id);
+          setShowFar(false);
+        }}
+        label={tr('选择宝宝', 'Choose baby')}
+      />
 
       <ol className="relative space-y-3 pl-11 before:absolute before:bottom-5 before:left-[19px] before:top-4 before:w-0.5 before:rounded-full before:bg-(--line-strong)">
         {unavailable ? (
@@ -182,12 +171,15 @@ export default function TimelineView({
         ))}
         {timeline.moments.length === 0 && !unavailable && (
           <Node marker={<Dot tone="faint" />}>
-            <p className="px-1 py-1 text-sm leading-relaxed text-(--muted)">
-              {tr(
-                '第一次微笑、第一次翻身、第一次洗澡……点“记录一个成长时刻”或上面的 ✓，把这些时刻留下来，家人手机上也能看到。',
-                'First smile, first roll, first bath… tap “Add a moment” or a ✓ above to keep these moments. Your family sees them too.',
-              )}
-            </p>
+            <div className="flex items-center gap-3 rounded-[20px] border border-(--line) bg-(--surface)/60 px-3 py-2">
+              <EmptyArt kind="moments" className="h-16 w-24 shrink-0" />
+              <p className="text-sm leading-relaxed text-(--muted)">
+                {tr(
+                  '第一次微笑、第一次翻身、第一次洗澡……点“记录一个成长时刻”把这些时刻留下来，家人手机上也能看到。',
+                  'First smile, first roll, first bath… tap “Add a moment” to keep them. Your family sees them too.',
+                )}
+              </p>
+            </div>
           </Node>
         )}
         <Node

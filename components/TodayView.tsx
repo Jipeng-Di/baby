@@ -1,6 +1,9 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
-import {ChevronDown, ChevronRight, Pencil, Plus} from 'lucide-react';
+import {ChevronDown, ChevronRight, Pencil} from 'lucide-react';
+import {EmptyState} from './ui';
+import {tap} from '@/lib/native';
+import {locale} from '@/lib/i18n';
 import BabyAvatar from './BabyAvatar';
 import WeatherCard from './WeatherCard';
 import {babyAge, localDay, timeLabel} from '@/lib/dates';
@@ -27,6 +30,15 @@ type Props = {
 };
 type Gap = {minutes: number; hours: number; rest: number; long: boolean};
 
+/** Time-of-day greeting for the page title. */
+function greeting(now: number) {
+  const h = new Date(now).getHours();
+  if (h < 5) return tr('夜深了，辛苦了', 'Late night, you’re doing great');
+  if (h < 11) return tr('早上好', 'Good morning');
+  if (h < 14) return tr('中午好', 'Good afternoon');
+  if (h < 18) return tr('下午好', 'Good afternoon');
+  return tr('晚上好', 'Good evening');
+}
 function gapSince(item: Feeding | undefined, now: number): Gap | null {
   if (!item) return null;
   const minutes = Math.max(0, Math.floor((now - new Date(item.fed_at).getTime()) / 60000));
@@ -242,7 +254,10 @@ export default function TodayView({
               key={amount}
               className="min-h-12 rounded-2xl border border-(--line-strong) bg-(--surface)/75 px-1 text-[15px] font-semibold text-(--brand) shadow-[0_3px_10px_rgba(32,84,63,.05)] transition active:scale-[.97] active:bg-(--brand-pale)"
               aria-label={tr(`记录 ${volumeLabel(amount)}`, `Log ${volumeLabel(amount)}`)}
-              onClick={() => onStartFeed(baby, amount)}
+              onClick={() => {
+                void tap();
+                onStartFeed(baby, amount);
+              }}
             >
               +{volumeNumber(amount)}
             </button>
@@ -265,17 +280,24 @@ export default function TodayView({
       className="flex flex-col gap-3"
       style={{minHeight: 'calc(100dvh - max(24px, env(safe-area-inset-top)) - 8rem)'}}
     >
+      <header className="px-1">
+        <p className="page-kicker">
+          {new Date(now).toLocaleDateString(locale(), {month: 'long', day: 'numeric', weekday: 'long'})}
+        </p>
+        <h1 className="page-title">{greeting(now)}</h1>
+      </header>
       <WeatherCard now={now} />
       {babies.length === 0 ? (
-        <div className="ui-card py-9 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-(--brand-pale) text-(--brand)">
-            <Plus />
-          </div>
-          <p className="mt-4 text-(--muted)">{tr('添加宝宝后即可开始记录', 'Add a baby to start logging')}</p>
-          <button className="mt-4 min-h-12 px-5 font-semibold text-(--brand)" onClick={onAddBaby}>
-            {tr('添加宝宝 →', 'Add baby →')}
-          </button>
-        </div>
+        <EmptyState
+          kind="baby"
+          title={tr('还没有宝宝', 'No baby yet')}
+          text={tr(
+            '添加宝宝后，这里会显示距上次喂奶的时间和今天的记录。',
+            'Add your baby to see time since the last feed and today’s log here.',
+          )}
+          action={tr('添加宝宝', 'Add baby')}
+          onAction={onAddBaby}
+        />
       ) : (
         <div className="flex flex-1 flex-col">
           <div

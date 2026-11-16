@@ -1,7 +1,7 @@
 'use client';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {readJson, writeJson} from '@/lib/storage';
-import {getLang, locale, tr, useLang} from '@/lib/i18n';
+import {getLang, tr, useLang} from '@/lib/i18n';
 import {
   Cloud,
   CloudDrizzle,
@@ -185,16 +185,24 @@ export default function WeatherCard({now}: {now: number}) {
       return !f;
     });
   };
-  const date = new Date(now).toLocaleDateString(locale(), {month: 'long', day: 'numeric', weekday: 'long'});
-
+  if (!weather && status === 'idle')
+    return (
+      <button
+        type="button"
+        onClick={() => void refresh()}
+        className="flex min-h-10 items-center gap-2 self-start rounded-full border border-(--line) bg-(--surface)/70 px-3.5 text-sm font-semibold text-(--brand)"
+      >
+        <MapPin size={16} />
+        {tr('显示当地天气', 'Show local weather')}
+      </button>
+    );
   return (
     <section
       className="relative overflow-hidden rounded-[22px] border border-(--rim)/90 bg-gradient-to-br from-(--brand-pale) via-(--surface-2) to-(--warm-pale) px-4 py-2.5 shadow-[0_14px_34px_rgba(31,67,52,.08)]"
       aria-label={tr('今日天气', 'Today’s weather')}
     >
       <span className="absolute -right-5 -top-8 h-24 w-24 rounded-full bg-(--surface)/50" />
-      <div className="relative flex items-center justify-between gap-3 text-xs font-medium text-(--muted)">
-        <span>{date}</span>
+      <div className="relative flex items-center justify-end gap-3 text-xs font-medium text-(--muted)">
         {weather && (
           <span className="-my-1.5 -mr-1.5 flex min-w-0 items-center gap-1">
             {weather.place && (
