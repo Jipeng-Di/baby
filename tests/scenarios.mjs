@@ -478,7 +478,12 @@ await browser.close();
 
 // ---------- cleanup + report
 if (process.env.KEEP !== '1') {
-  for (const p of people.slice(0, 9)) console.log(`cleanup ${p.key}: ${await deleteAccount(p)}`);
+  // Olivia deletes herself in scenario 10; clean her up too in case that scenario failed or was skipped.
+  for (const p of people) {
+    const result = await deleteAccount(p);
+    if (!(p.key === 'olivia' && /Invalid login credentials/.test(result)))
+      console.log(`cleanup ${p.key}: ${result}`);
+  }
 } else console.log('KEEP=1: test accounts left in place');
 console.log('\nScenario results');
 for (const r of results) {
