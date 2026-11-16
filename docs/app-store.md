@@ -131,8 +131,15 @@ Data collected, all **linked to the user**, **not used for tracking**, purpose *
 | User Content | Photos or Videos | Optional baby photos |
 | User Content | Other User Content | Notes, moments, baby name and birthday |
 | Identifiers | User ID | Account ID that links records to the family |
+| Sensitive Info | Sensitive Info | Gestational age at birth counts as childbirth information |
 
-Not collected: location (only sent directly from the device to the weather providers, never to our
+Also collected, **not linked to the user**, not used for tracking, purpose App Functionality:
+**Location → Coarse Location**. Only after the user taps "Show local weather", the device sends
+coordinates rounded to about 1 km straight to the weather providers (Open-Meteo, BigDataCloud),
+without any account information. It never reaches our server.
+
+Not collected: usage data, diagnostics, purchases, financial info, contacts, phone number, browsing
+or search history, device ID.
 server, approximate to about 1 km, and only after the user taps "Show local weather"), usage data,
 diagnostics, purchases, financial info, contacts, browsing or search history.
 
