@@ -81,7 +81,12 @@ async function deleteAccount(p) {
   if (!admin) return `delete_account failed (${e.message})`;
   // Fallback through the admin API so a broken RPC never leaves test data behind.
   const uid = (await sb.auth.getUser()).data.user?.id;
-  await admin.from('families').delete().eq('created_by', uid);
+  const {data: fams} = await admin.from('families').select('id').eq('created_by', uid);
+  for (const f of fams ?? []) {
+    for (const t of ['feedings', 'growth_measurements', 'baby_moments'])
+      await admin.from(t).delete().eq('family_id', f.id);
+    await admin.from('families').delete().eq('id', f.id);
+  }
   const {error: d} = await admin.auth.admin.deleteUser(uid);
   return d
     ? `delete_account failed (${e.message}); admin delete failed (${d.message})`
@@ -114,6 +119,10 @@ async function scenario(name, fn) {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.stack || e.message));
+  page.on('response', r => {
+    if (r.status() >= 400 && !/favicon/.test(r.url()))
+      errors.push(`HTTP ${r.status()} ${r.request().method()} ${r.url().replace(url, '')}`);
+  });
   page.on('console', m => {
     if (m.type() === 'error' && !/favicon|404/.test(m.text())) errors.push(m.text());
   });
@@ -198,6 +207,14 @@ async function openSettings(page) {
     .click();
   await page.getByRole('dialog', {name: 'Settings'}).waitFor();
 }
+/** The "Record growth" fold is already open while there are no records; only click it when closed. */
+async function openRecordGrowth(page) {
+  const weight = page.getByLabel(/Weight/).and(page.locator('input'));
+  await weight.waitFor({timeout: 3000}).catch(async () => {
+    await page.getByText('Record growth').click();
+    await weight.waitFor();
+  });
+}
 const familyCodes = {};
 
 // ---------- scenarios
@@ -235,8 +252,8 @@ await scenario('2 James: joins with the family code and sees Noah’s feed', asy
   await page.getByText(/by Emily/).waitFor();
   await quickLog(page, 90);
   await tab(page, 'Family');
-  await page.getByText('James').waitFor();
-  await page.getByText('Emily').waitFor();
+  await page.getByText('James', {exact: true}).waitFor();
+  await page.getByText('Emily', {exact: true}).waitFor();
   await shot('james-family');
 });
 
@@ -251,12 +268,12 @@ await scenario('3 李婷: twins, Chinese UI, per-baby history', async ({page, sh
   await page.getByRole('button', {name: /关闭|Close/}).click();
   await tab(page, '今天');
   await page.getByRole('tab', {name: /糯米/}).waitFor();
-  await page.getByRole('button', {name: '记录 120 ml'}).first().click();
+  await page.getByRole('tabpanel', {name: /糯米/}).getByRole('button', {name: '记录 120 ml'}).click();
   await page.getByRole('dialog').getByRole('button', {name: '保存记录'}).click();
   await page.getByRole('dialog').waitFor({state: 'hidden'});
   await page.getByRole('tab', {name: /团子/}).click();
   await page.waitForTimeout(600);
-  await page.getByRole('button', {name: '记录 150 ml'}).first().click();
+  await page.getByRole('tabpanel', {name: /团子/}).getByRole('button', {name: '记录 150 ml'}).click();
   await page.getByRole('dialog').getByRole('button', {name: '保存记录'}).click();
   await page.getByRole('dialog').waitFor({state: 'hidden'});
   await shot('liting-today-zh');
@@ -299,8 +316,11 @@ await scenario('5 Aisha: preterm baby uses corrected age on the growth chart', a
   await page.getByText(/born at 34\+2/).waitFor();
   await tab(page, 'Growth');
   await page.getByRole('tab', {name: 'Growth chart'}).click();
-  await page.getByText('Record growth').click();
-  await page.getByLabel(/Weight/).fill('4.2');
+  await openRecordGrowth(page);
+  await page
+    .getByLabel(/Weight/)
+    .and(page.locator('input'))
+    .fill('4.2');
   await page.locator('input[type=date]').fill(ago(1));
   await page.getByRole('button', {name: /^Save$/}).click();
   await page.getByText('Growth record saved').waitFor();
@@ -317,15 +337,22 @@ await scenario('6 王芳: several growth records, percentile, delete one', async
   await addBaby(page, {name: '小宝', birthday: ago(183), sex: 'male'});
   await tab(page, 'Growth');
   await page.getByRole('tab', {name: 'Growth chart'}).click();
-  await page.getByText('Record growth').click();
+  await openRecordGrowth(page);
   for (const [days, w, l] of [
     [150, 4.6, 55],
     [90, 6.4, 61],
     [30, 7.6, 66],
     [2, 8.0, 68],
   ]) {
-    await page.getByLabel(/Weight/).fill(String(w));
-    await page.getByLabel(/Length/).fill(String(l));
+    await openRecordGrowth(page);
+    await page
+      .getByLabel(/Weight/)
+      .and(page.locator('input'))
+      .fill(String(w));
+    await page
+      .getByLabel(/Length/)
+      .and(page.locator('input'))
+      .fill(String(l));
     await page.locator('input[type=date]').fill(ago(days));
     await page.getByRole('button', {name: /^Save$/}).click();
     await page.getByText('Growth record saved').waitFor();

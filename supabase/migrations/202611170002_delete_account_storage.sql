@@ -1,7 +1,23 @@
--- delete_account(): stop deleting storage.objects rows directly. Supabase now rejects direct deletes
--- on the storage tables ("Direct deletion from storage tables is not allowed"), which made every
--- account deletion fail. The app removes the family's photos through the Storage API before calling
--- this function, so the function only has to drop the database rows.
+-- Two fixes for account deletion found by the scenario tests:
+-- 1. feedings / growth_measurements / baby_moments reference babies through a composite foreign key
+--    without ON DELETE CASCADE, so deleting a family (which cascades to babies) failed with a
+--    foreign-key violation as soon as the family had any records. Add the cascade.
+-- 2. delete_account() deleted storage.objects rows directly. Supabase rejects that ("Direct
+--    deletion from storage tables is not allowed"), which made every account deletion fail. The app
+--    removes the family's photos through the Storage API before calling this function.
+alter table public.feedings
+  drop constraint if exists feedings_baby_id_family_id_fkey,
+  add constraint feedings_baby_id_family_id_fkey
+    foreign key (baby_id, family_id) references public.babies(id, family_id) on delete cascade;
+alter table public.growth_measurements
+  drop constraint if exists growth_measurements_baby_id_family_id_fkey,
+  add constraint growth_measurements_baby_id_family_id_fkey
+    foreign key (baby_id, family_id) references public.babies(id, family_id) on delete cascade;
+alter table public.baby_moments
+  drop constraint if exists baby_moments_baby_id_family_id_fkey,
+  add constraint baby_moments_baby_id_family_id_fkey
+    foreign key (baby_id, family_id) references public.babies(id, family_id) on delete cascade;
+
 create or replace function public.delete_account() returns void
 language plpgsql security definer set search_path = '' as $$
 declare
