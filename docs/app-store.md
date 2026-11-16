@@ -140,8 +140,6 @@ without any account information. It never reaches our server.
 
 Not collected: usage data, diagnostics, purchases, financial info, contacts, phone number, browsing
 or search history, device ID.
-server, approximate to about 1 km, and only after the user taps "Show local weather"), usage data,
-diagnostics, purchases, financial info, contacts, browsing or search history.
 
 ## Export compliance
 
