@@ -88,6 +88,8 @@ async function api(method, path, body) {
       `${method} ${path} → ${res.status}: ${(json?.errors ?? []).map(e => `${e.title}: ${e.detail}${e.source?.pointer ? ` (${e.source.pointer})` : ''}`).join(' | ') || text}`,
     );
     err.errors = json?.errors ?? [];
+    for (const e of err.errors)
+      if (e.meta?.associatedErrors) console.error(JSON.stringify(e.meta.associatedErrors, null, 1));
     throw err;
   }
   return json;
