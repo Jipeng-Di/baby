@@ -20,6 +20,7 @@ type Props = {
   recorderName: (userId: string) => string;
   onMonthChange: (monthStart: Date) => void;
   loadingOlder: boolean;
+  avatarUrls: Record<string, string>;
 };
 
 function monthKey(date: Date) {
@@ -40,6 +41,7 @@ export default function HistoryCalendar({
   recorderName,
   onMonthChange,
   loadingOlder,
+  avatarUrls,
 }: Props) {
   const unit = useUnit();
   const today = dayKey(new Date());
@@ -101,6 +103,7 @@ export default function HistoryCalendar({
         babies={babies}
         value={selectedBabyId}
         onChange={setBabyId}
+        avatarUrls={avatarUrls}
         label={tr('选择宝宝', 'Choose baby')}
       />
       <section className="ui-card p-3">

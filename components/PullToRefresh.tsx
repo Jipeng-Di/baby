@@ -90,7 +90,7 @@ export default function PullToRefresh({
         ) : null}
       </div>
       <div
-        className="min-h-screen pb-32"
+        className="min-h-screen pb-[calc(88px+env(safe-area-inset-bottom))]"
         style={{
           transform: `translateY(${distance}px)`,
           transition: dragging ? 'none' : 'transform 180ms ease',

@@ -54,6 +54,7 @@ type Props = {
   onAdd: (baby: Baby, values: GrowthValues, date: string, note: string) => Promise<boolean>;
   onDelete: (item: GrowthMeasurement) => Promise<void>;
   onSetSex: (baby: Baby, sex: BabySex) => Promise<void>;
+  avatarUrls: Record<string, string>;
 };
 type GrowthPoint = {
   month: number;
@@ -101,7 +102,15 @@ function driftText(drift: GrowthDrift) {
   );
 }
 
-export default function GrowthView({babies, measurements, busy, onAdd, onDelete, onSetSex}: Props) {
+export default function GrowthView({
+  babies,
+  measurements,
+  busy,
+  onAdd,
+  onDelete,
+  onSetSex,
+  avatarUrls,
+}: Props) {
   const lang = useLang();
   const palette = chartPalette(useDarkMode());
   const [babyId, setBabyId] = useState(babies[0]?.id ?? '');
@@ -319,6 +328,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
     <>
       <BabyChips
         babies={babies}
+        avatarUrls={avatarUrls}
         value={baby?.id ?? ''}
         onChange={id => {
           setBabyId(id);

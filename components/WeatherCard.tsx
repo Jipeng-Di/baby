@@ -1,6 +1,7 @@
 'use client';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {readJson, writeJson} from '@/lib/storage';
+import {currentPosition, LocationDenied, withTimeout} from '@/lib/native';
 import {getLang, tr, useLang} from '@/lib/i18n';
 import {
   Cloud,
@@ -67,28 +68,15 @@ function describe(code: number, isDay: boolean): {text: string; Icon: LucideIcon
   return {text: '—', Icon: Cloud};
 }
 
-function locate() {
-  return new Promise<GeolocationPosition>((resolve, reject) => {
-    if (!('geolocation' in navigator)) {
-      reject(new Error('unsupported'));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: false,
-      maximumAge: 3 * 60 * 60 * 1000,
-      timeout: 15000,
-    });
-  });
-}
-
 async function load(): Promise<Weather> {
-  const {coords} = await locate();
+  // Location can wait on a permission prompt; the whole lookup gets a hard ceiling instead.
+  const coords = await withTimeout(currentPosition(), 30000);
   // ~1 km precision is plenty for weather and avoids sending an exact location.
   const lat = coords.latitude.toFixed(2),
     lon = coords.longitude.toFixed(2);
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=auto&forecast_days=1`;
   const [weatherRes, place] = await Promise.all([
-    fetch(url),
+    withTimeout(fetch(url), 15000),
     fetch(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=${getLang()}`,
     )
@@ -134,10 +122,7 @@ export default function WeatherCard({now}: {now: number}) {
       writeJson(ENABLED_KEY, true);
       setStatus('ready');
     } catch (e) {
-      const denied =
-        typeof GeolocationPositionError !== 'undefined' &&
-        e instanceof GeolocationPositionError &&
-        e.code === e.PERMISSION_DENIED;
+      const denied = e instanceof LocationDenied;
       setStatus(denied ? 'denied' : 'error');
       if (denied) writeJson(ENABLED_KEY, false);
     }

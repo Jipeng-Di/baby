@@ -39,24 +39,28 @@ export default function BottomNav({page}: {page: Page}) {
     ['family', tr('家庭', 'Family'), House],
   ];
   return (
+    // A tab bar flush with the bottom edge; the safe-area padding keeps the buttons above the home indicator.
     <nav
-      className="safe-bottom fixed bottom-[max(10px,env(safe-area-inset-bottom))] left-1/2 z-20 flex w-[calc(100%_-_24px)] max-w-[488px] -translate-x-1/2 rounded-[25px] border border-(--rim)/90 bg-(--paper)/92 p-1.5 shadow-[0_12px_40px_rgba(19,50,39,.18)] backdrop-blur-2xl"
+      data-tab-bar
+      className="safe-bottom fixed inset-x-0 bottom-0 z-20 mx-auto max-w-lg border-t border-(--rim)/90 bg-(--paper)/94 shadow-[0_-8px_30px_rgba(19,50,39,.08)] backdrop-blur-2xl"
       aria-label={tr('主导航', 'Main navigation')}
     >
-      {tabs.map(([tab, label, Icon]) => {
-        const on = tab === current;
-        return (
-          <button
-            key={tab}
-            aria-current={on ? 'page' : undefined}
-            className={`flex min-h-[58px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[19px] text-[11px] transition ${on ? 'bg-(--brand-pale) font-bold text-(--brand)' : 'text-(--soft) active:bg-(--surface-2)'}`}
-            onClick={() => router.push(`/${lastView(tab)}`)}
-          >
-            <Icon size={21} strokeWidth={on ? 2.5 : 1.8} />
-            {label}
-          </button>
-        );
-      })}
+      <div className="flex gap-1 px-2 py-1.5">
+        {tabs.map(([tab, label, Icon]) => {
+          const on = tab === current;
+          return (
+            <button
+              key={tab}
+              aria-current={on ? 'page' : undefined}
+              className={`flex min-h-[54px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[16px] text-[11px] transition ${on ? 'bg-(--brand-pale) font-bold text-(--brand)' : 'text-(--soft) active:bg-(--surface-2)'}`}
+              onClick={() => router.push(`/${lastView(tab)}`)}
+            >
+              <Icon size={21} strokeWidth={on ? 2.5 : 1.8} />
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }

@@ -1104,6 +1104,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
                 recorderName={recorderName}
                 onMonthChange={ensureFeedingsSince}
                 loadingOlder={loadingOlder}
+                avatarUrls={avatarUrls}
               />
             )}
             {page === 'trends' && (
@@ -1163,6 +1164,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
                 onAdd={addGrowthMeasurement}
                 onDelete={removeGrowthMeasurement}
                 onSetSex={setBabySex}
+                avatarUrls={avatarUrls}
               />
             )}
             {page === 'family' && (

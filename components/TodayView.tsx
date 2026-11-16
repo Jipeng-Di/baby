@@ -1,5 +1,5 @@
 'use client';
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {ChevronDown, ChevronRight, Pencil} from 'lucide-react';
 import {EmptyState} from './ui';
 import {tap} from '@/lib/native';
@@ -114,6 +114,28 @@ export default function TodayView({
       remember(index);
     }
   }
+  // Each card fills the space down to the tab bar, but grows only with its own content: the carousel
+  // aligns cards to the top, so expanding one card no longer stretches the others. The fill height is
+  // written straight to a CSS variable on the scroller.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!multi || !el) return;
+    const measure = () => {
+      const tabBar = document.querySelector<HTMLElement>('[data-tab-bar]');
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      // pt-1 + pb-5 on the scroller, plus the page dots under it.
+      const room = window.innerHeight - (tabBar?.offsetHeight ?? 0) - top - 24 - 28;
+      el.style.setProperty('--slide-min', `${Math.max(360, Math.round(room))}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (el.parentElement) observer.observe(el.parentElement);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [multi]);
   // Reopen on the baby the user last looked at.
   useEffect(() => {
     if (!multi || restored.current) return;
@@ -278,7 +300,9 @@ export default function TodayView({
   return (
     <div
       className="flex flex-col gap-3"
-      style={{minHeight: 'calc(100dvh - max(24px, env(safe-area-inset-top)) - 8rem)'}}
+      style={{
+        minHeight: 'calc(100dvh - max(24px, env(safe-area-inset-top)) - 88px - env(safe-area-inset-bottom))',
+      }}
     >
       <header className="px-1">
         <p className="page-kicker">
@@ -345,7 +369,7 @@ export default function TodayView({
               <div
                 ref={scroller}
                 onScroll={onScroll}
-                className="no-scrollbar relative -mx-5 mt-1.5 flex flex-1 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overscroll-x-contain scroll-px-5 px-5 pb-5 pt-1"
+                className="no-scrollbar relative -mx-5 mt-1.5 flex flex-1 snap-x snap-mandatory items-start gap-3 overflow-x-auto overscroll-x-contain scroll-px-5 px-5 pb-5 pt-1"
                 aria-roledescription="carousel"
                 aria-label={tr('宝宝卡片，左右滑动切换', 'Baby cards, swipe to switch')}
               >
@@ -359,7 +383,7 @@ export default function TodayView({
                       `${babyName(baby)}，第 ${i + 1} 个，共 ${babies.length} 个`,
                       `${babyName(baby)}, ${i + 1} of ${babies.length}`,
                     )}
-                    className={`flex w-[calc(100%-56px)] shrink-0 flex-col snap-always ${i === babies.length - 1 ? 'snap-end' : 'snap-start'}`}
+                    className={`flex min-h-(--slide-min) w-[calc(100%-56px)] shrink-0 flex-col snap-always ${i === babies.length - 1 ? 'snap-end' : 'snap-start'}`}
                   >
                     {renderCard(baby, i)}
                   </div>
