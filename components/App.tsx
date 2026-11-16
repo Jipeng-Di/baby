@@ -1191,6 +1191,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         )}
         {settingsOpen && (
           <SettingsSheet
+            email={user?.email ?? null}
             busy={busy}
             onExportFeedings={exportFeedings}
             onExportGrowth={exportGrowth}

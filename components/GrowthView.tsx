@@ -1,5 +1,5 @@
 'use client';
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Area,
   CartesianGrid,
@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {ChevronDown, Plus, Scale, TriangleAlert, Trash2} from 'lucide-react';
+import {ChevronDown, Plus, RotateCcw, Scale, TriangleAlert, Trash2, ZoomIn, ZoomOut} from 'lucide-react';
 import type {Baby, BabySex, GrowthMeasurement} from '@/lib/types';
 import {babyName} from '@/lib/types';
 import {
@@ -112,6 +112,16 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
   const [showAll, setShowAll] = useState(false);
   // Once the baby is past a year the full 0–60 month axis squeezes the points; default to the last six months.
   const [range, setRange] = useState<'recent' | 'all'>('recent');
+  // A hand-zoomed window in months (pinch, drag or the +/− buttons); null follows the preset range.
+  const [view, setView] = useState<{min: number; max: number} | null>(null);
+  const gesture = useRef<{
+    kind: 'pinch' | 'pan';
+    startX: number;
+    startDist: number;
+    anchor: number;
+    start: {min: number; max: number};
+    moved: boolean;
+  } | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<GrowthPoint | null>(null);
   useEffect(() => {
     if (!babies.some(b => b.id === babyId)) setBabyId(babies[0]?.id ?? '');
@@ -173,22 +183,104 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
     return Math.min(60, needed <= 12 ? Math.max(3, Math.ceil(needed)) : Math.ceil(needed / 6) * 6);
   }, [today, points]);
   const zoomable = chartMax > 12;
-  const chartMin = zoomable && range === 'recent' && today ? Math.max(0, Math.floor(today.months) - 6) : 0;
+  const preset = {
+    min: zoomable && range === 'recent' && today ? Math.max(0, Math.floor(today.months) - 6) : 0,
+    max: chartMax,
+  };
+  const window_ = view ?? preset;
+  const chartMin = window_.min;
+  const chartEnd = window_.max;
+  const span = chartEnd - chartMin;
+  const MIN_SPAN = 1;
+  /** Keeps a window inside 0–chartMax and at least a month wide. */
+  const clampView = (min: number, max: number) => {
+    const width = Math.max(MIN_SPAN, Math.min(chartMax, max - min));
+    const start = Math.max(0, Math.min(min, chartMax - width));
+    return {min: start, max: start + width};
+  };
+  const zoomBy = (factor: number) => {
+    const centre = chartMin + span / 2;
+    const width = span * factor;
+    setView(clampView(centre - width / 2, centre + width / 2));
+  };
+  const monthAt = (clientX: number, el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
+    return chartMin + ((clientX - rect.left) / rect.width) * span;
+  };
+  const touchDist = (t: React.TouchList) =>
+    Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  function onTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const start = {min: chartMin, max: chartEnd};
+    if (e.touches.length >= 2) {
+      const mid = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      gesture.current = {
+        kind: 'pinch',
+        startX: mid,
+        startDist: touchDist(e.touches),
+        anchor: monthAt(mid, e.currentTarget),
+        start,
+        moved: false,
+      };
+    } else if (e.touches.length === 1) {
+      gesture.current = {
+        kind: 'pan',
+        startX: e.touches[0].clientX,
+        startDist: 0,
+        anchor: 0,
+        start,
+        moved: false,
+      };
+    }
+  }
+  function onTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    const g = gesture.current;
+    if (!g) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startSpan = g.start.max - g.start.min;
+    if (g.kind === 'pinch' && e.touches.length >= 2) {
+      const scale = g.startDist / Math.max(1, touchDist(e.touches));
+      const width = startSpan * scale;
+      const ratio = (g.anchor - g.start.min) / startSpan;
+      g.moved = true;
+      setView(clampView(g.anchor - ratio * width, g.anchor - ratio * width + width));
+    } else if (g.kind === 'pan' && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - g.startX;
+      if (!g.moved && Math.abs(dx) < 10) return;
+      g.moved = true;
+      const shift = (dx / rect.width) * startSpan;
+      setView(clampView(g.start.min - shift, g.start.max - shift));
+    }
+  }
+  function onTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    if (e.touches.length === 1 && gesture.current?.kind === 'pinch')
+      gesture.current = {
+        kind: 'pan',
+        startX: e.touches[0].clientX,
+        startDist: 0,
+        anchor: 0,
+        start: {min: chartMin, max: chartEnd},
+        moved: false,
+      };
+    else if (!e.touches.length) gesture.current = null;
+  }
   // Each row carries the two shaded bands as [low, high] ranges, plus the P50 line.
   const rows = useMemo(
     () =>
       baby?.sex
         ? whoGrowthRows(metric, baby.sex, chartMax)
-            .filter(row => row.month >= chartMin)
+            .filter(row => row.month >= Math.floor(chartMin) && row.month <= Math.ceil(chartEnd))
             .map(row => ({
               ...row,
               outer: [row.p3, row.p97] as [number, number],
               inner: [row.p15, row.p85] as [number, number],
             }))
         : [],
-    [baby, metric, chartMax, chartMin],
+    [baby, metric, chartMax, chartMin, chartEnd],
   );
-  const visiblePoints = useMemo(() => points.filter(point => point.month >= chartMin), [points, chartMin]);
+  const visiblePoints = useMemo(
+    () => points.filter(point => point.month >= chartMin && point.month <= chartEnd),
+    [points, chartMin, chartEnd],
+  );
   // The axis starts just below the lowest visible value instead of at zero, so the curves use the whole height.
   const yAxis = useMemo(() => {
     const all = [...rows.flatMap(row => [row.p3, row.p97]), ...visiblePoints.map(point => point.value)];
@@ -237,6 +329,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
             onClick={() => {
               setBabyId(b.id);
               setSelectedPoint(null);
+              setView(null);
             }}
           >
             {babyName(b)}
@@ -300,6 +393,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
             onChange={k => {
               setMetric(k);
               setSelectedPoint(null);
+              setView(null);
             }}
             options={metrics.map(k => ({value: k, label: metricInfo[k].label}))}
           />
@@ -367,8 +461,38 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                 )}
               </p>
             )}
-            {zoomable && (
-              <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1" role="group" aria-label={tr('缩放', 'Zoom')}>
+                {(
+                  [
+                    [ZoomOut, tr('缩小', 'Zoom out'), () => zoomBy(1.5), span >= chartMax],
+                    [ZoomIn, tr('放大', 'Zoom in'), () => zoomBy(1 / 1.5), span <= MIN_SPAN],
+                  ] as const
+                ).map(([Icon, label, run, disabled]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-(--chip) text-(--muted) disabled:opacity-40"
+                    aria-label={label}
+                    title={label}
+                    disabled={disabled}
+                    onClick={run}
+                  >
+                    <Icon size={16} />
+                  </button>
+                ))}
+                {view && (
+                  <button
+                    type="button"
+                    className="flex h-9 items-center gap-1 rounded-full bg-(--chip) px-3 text-xs font-semibold text-(--muted)"
+                    onClick={() => setView(null)}
+                  >
+                    <RotateCcw size={14} />
+                    {tr('复位', 'Reset')}
+                  </button>
+                )}
+              </div>
+              {zoomable && (
                 <div
                   className="flex rounded-full bg-(--chip) p-1"
                   role="group"
@@ -376,26 +500,36 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                 >
                   {(
                     [
-                      ['recent', tr('近 6 个月', 'Last 6 months')],
-                      ['all', tr('出生至今', 'Since birth')],
+                      ['recent', tr('近 6 个月', '6 months')],
+                      ['all', tr('出生至今', 'All')],
                     ] as const
                   ).map(([key, label]) => (
                     <button
                       key={key}
                       type="button"
-                      aria-pressed={range === key}
-                      className={`min-h-9 rounded-full px-3 text-xs font-semibold transition ${range === key ? 'bg-(--paper) text-(--brand) shadow-sm' : 'text-(--muted)'}`}
-                      onClick={() => setRange(key)}
+                      aria-pressed={!view && range === key}
+                      className={`min-h-9 rounded-full px-3 text-xs font-semibold whitespace-nowrap transition ${!view && range === key ? 'bg-(--paper) text-(--brand) shadow-sm' : 'text-(--muted)'}`}
+                      onClick={() => {
+                        setRange(key);
+                        setView(null);
+                      }}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+            <p className="mt-1 text-right text-[11px] text-(--soft)">
+              {tr('双指捏合缩放，左右拖动平移', 'Pinch to zoom, drag sideways to pan')}
+            </p>
             <div
-              className="mt-3 h-72 w-full"
+              className="mt-2 h-72 w-full touch-pan-y select-none"
               role="img"
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              onTouchCancel={() => (gesture.current = null)}
               aria-label={tr(
                 `${babyName(baby)}的${info.title}曲线`,
                 `${info.title} chart for ${babyName(baby)}`,
@@ -407,9 +541,13 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                   <XAxis
                     dataKey="month"
                     type="number"
-                    domain={[chartMin, chartMax]}
-                    tickCount={Math.min(chartMax - chartMin + 1, 7)}
-                    allowDecimals={false}
+                    domain={[chartMin, chartEnd]}
+                    allowDataOverflow
+                    tickCount={Math.min(Math.ceil(span) + 1, 7)}
+                    allowDecimals={span < 6}
+                    tickFormatter={v =>
+                      span < 6 ? Number(v).toFixed(1).replace(/\.0$/, '') : String(Math.round(Number(v)))
+                    }
                     tick={{fontSize: 11, fill: palette.tick}}
                     tickLine={false}
                     axisLine={false}
@@ -419,6 +557,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                     type="number"
                     dataKey="value"
                     domain={yAxis.domain}
+                    allowDataOverflow
                     ticks={yAxis.ticks}
                     interval={0}
                     tick={{fontSize: 11, fill: palette.tick}}
@@ -451,7 +590,7 @@ export default function GrowthView({babies, measurements, busy, onAdd, onDelete,
                     activeDot={false}
                     isAnimationActive={false}
                   />
-                  {today && today.months <= chartMax && (
+                  {today && today.months >= chartMin && today.months <= chartEnd && (
                     <ReferenceLine
                       x={today.months}
                       stroke={palette.tick}

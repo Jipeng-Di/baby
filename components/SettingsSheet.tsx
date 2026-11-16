@@ -1,15 +1,52 @@
 'use client';
 import {useState} from 'react';
-import {Check, ChevronDown, Download, Languages, LogOut, Milk, Stethoscope, X} from 'lucide-react';
+import {Check, ChevronDown, Download, Languages, LogOut, Milk, Stethoscope, UserRound, X} from 'lucide-react';
 import {languages, setLang, tr, useLang} from '@/lib/i18n';
 import {setUnit, useUnit, volumeUnits} from '@/lib/units';
 import {regions, setRegion, useRegion} from '@/lib/region';
 
 type Option<T extends string> = {value: T; label: string; detail?: string};
 
-/** One preference: a closed row shows the current choice; tapping it unfolds the options. */
-function Preference<T extends string>({
+/** A row that shows a label and a summary; tapping it unfolds its content. */
+function Fold({
   icon: Icon,
+  label,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  icon: typeof Languages;
+  label: string;
+  summary?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-b border-(--line) last:border-0">
+      <button
+        type="button"
+        className="flex min-h-14 w-full items-center gap-3 px-4 text-left"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <Icon size={18} className="shrink-0 text-(--brand)" />
+        <span className="flex-1 font-medium">{label}</span>
+        {summary && <span className="text-sm text-(--muted)">{summary}</span>}
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-(--soft) transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  );
+}
+
+/** One preference: the folded row shows the current choice; unfolding lists the options. */
+function Preference<T extends string>({
+  icon,
   label,
   note,
   value,
@@ -27,52 +64,40 @@ function Preference<T extends string>({
   onToggle: () => void;
   onChange: (value: T) => void;
 }) {
-  const current = options.find(o => o.value === value);
   return (
-    <div className="border-b border-(--line) last:border-0">
-      <button
-        type="button"
-        className="flex min-h-14 w-full items-center gap-3 px-4 text-left"
-        aria-expanded={open}
-        onClick={onToggle}
-      >
-        <Icon size={18} className="shrink-0 text-(--brand)" />
-        <span className="flex-1 font-medium">{label}</span>
-        <span className="text-sm text-(--muted)">{current?.label}</span>
-        <ChevronDown
-          size={18}
-          className={`shrink-0 text-(--soft) transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && (
-        <div className="px-4 pb-4" role="radiogroup" aria-label={label}>
-          <div className="overflow-hidden rounded-xl bg-(--surface-2)">
-            {options.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={value === option.value}
-                className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-(--line)/60 px-3 text-left last:border-0"
-                onClick={() => onChange(option.value)}
-              >
-                <span>
-                  <span className="block text-sm font-medium">{option.label}</span>
-                  {option.detail && <span className="block text-xs text-(--muted)">{option.detail}</span>}
-                </span>
-                {value === option.value && <Check size={18} className="shrink-0 text-(--brand)" />}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-xs leading-relaxed text-(--soft)">{note}</p>
-        </div>
-      )}
-    </div>
+    <Fold
+      icon={icon}
+      label={label}
+      summary={options.find(o => o.value === value)?.label}
+      open={open}
+      onToggle={onToggle}
+    >
+      <div role="radiogroup" aria-label={label} className="overflow-hidden rounded-xl bg-(--surface-2)">
+        {options.map(option => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-(--line)/60 px-3 text-left last:border-0"
+            onClick={() => onChange(option.value)}
+          >
+            <span>
+              <span className="block text-sm font-medium">{option.label}</span>
+              {option.detail && <span className="block text-xs text-(--muted)">{option.detail}</span>}
+            </span>
+            {value === option.value && <Check size={18} className="shrink-0 text-(--brand)" />}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-(--soft)">{note}</p>
+    </Fold>
   );
 }
 
 /** Settings sheet: per-device preferences, CSV export and sign-out. */
 export default function SettingsSheet({
+  email,
   busy,
   onExportFeedings,
   onExportGrowth,
@@ -80,6 +105,8 @@ export default function SettingsSheet({
   onSignOut,
   onClose,
 }: {
+  /** The signed-in account, shown next to the sign-out button. */
+  email: string | null;
   busy: boolean;
   onExportFeedings: () => Promise<void>;
   onExportGrowth: () => Promise<void>;
@@ -90,9 +117,9 @@ export default function SettingsSheet({
   const lang = useLang();
   const unit = useUnit();
   const region = useRegion();
-  const [open, setOpen] = useState<'lang' | 'unit' | 'region' | null>(null);
-  const toggle = (key: 'lang' | 'unit' | 'region') => () =>
-    setOpen(current => (current === key ? null : key));
+  type Section = 'lang' | 'unit' | 'region' | 'export';
+  const [open, setOpen] = useState<Section | null>(null);
+  const toggle = (key: Section) => () => setOpen(current => (current === key ? null : key));
   const exports: [string, () => Promise<void>][] = [
     [tr('喝奶记录', 'Feedings'), onExportFeedings],
     [tr('生长记录', 'Growth records'), onExportGrowth],
@@ -169,39 +196,58 @@ export default function SettingsSheet({
           />
         </div>
 
-        <h3 className="mt-6 mb-2 text-sm font-semibold text-(--muted)">{tr('数据导出', 'Export data')}</h3>
+        <h3 className="mt-6 mb-2 text-sm font-semibold text-(--muted)">{tr('数据', 'Data')}</h3>
         <div className="overflow-hidden rounded-2xl border border-(--line) bg-(--surface)">
-          {exports.map(([label, run]) => (
-            <button
-              key={label}
-              type="button"
-              className="flex min-h-14 w-full items-center gap-3 border-b border-(--line) px-4 text-left font-medium text-(--brand) last:border-0 disabled:opacity-60"
-              disabled={busy}
-              onClick={async () => {
-                await run();
-                onClose();
-              }}
-            >
-              <Download size={18} className="shrink-0" />
-              <span className="flex-1">{label}</span>
-            </button>
-          ))}
+          <Fold
+            icon={Download}
+            label={tr('数据导出', 'Export data')}
+            summary="CSV"
+            open={open === 'export'}
+            onToggle={toggle('export')}
+          >
+            <div className="overflow-hidden rounded-xl bg-(--surface-2)">
+              {exports.map(([label, run]) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-(--line)/60 px-3 text-left text-sm font-medium text-(--brand) last:border-0 disabled:opacity-60"
+                  disabled={busy}
+                  onClick={async () => {
+                    await run();
+                    onClose();
+                  }}
+                >
+                  <span>{label}</span>
+                  <Download size={16} className="shrink-0" />
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-(--soft)">
+              {tr(
+                '导出为 CSV，可用 Excel 或 Numbers 打开。换手机前建议备份一次。',
+                'Export as CSV to open in Excel or Numbers. A good backup before switching phones.',
+              )}
+            </p>
+          </Fold>
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-(--soft)">
-          {tr(
-            '导出为 CSV，可用 Excel 或 Numbers 打开。换手机前建议备份一次。',
-            'Export as CSV to open in Excel or Numbers. A good backup before switching phones.',
-          )}
-        </p>
 
         <h3 className="mt-6 mb-2 text-sm font-semibold text-(--muted)">{tr('账户', 'Account')}</h3>
-        <div className="overflow-hidden rounded-2xl border border-(--line) bg-(--surface)">
+        <div className="flex items-center gap-3 rounded-2xl border border-(--line) bg-(--surface) px-4 py-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--brand-pale) text-(--brand)">
+            <UserRound size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-(--soft)">{tr('当前登录', 'Signed in as')}</span>
+            <span className="block truncate text-sm font-medium">
+              {email || tr('未知账号', 'Unknown account')}
+            </span>
+          </span>
           <button
             type="button"
-            className="flex min-h-14 w-full items-center gap-3 px-4 text-left font-medium text-(--danger)"
+            className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-(--danger)/40 px-3.5 text-sm font-semibold text-(--danger) active:bg-(--danger-pale)"
             onClick={onSignOut}
           >
-            <LogOut size={18} className="shrink-0" />
+            <LogOut size={16} />
             {tr('退出登录', 'Sign out')}
           </button>
         </div>
