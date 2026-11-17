@@ -12,13 +12,24 @@ import {
   type Feeding,
   type FeedingType,
   type GrowthMeasurement,
+  type BabyEvent,
+  type EventKind,
   type Member,
   type Moment,
 } from '@/lib/types';
 import {datetimeLocal, dayKey} from '@/lib/dates';
 import {tr, useLang} from '@/lib/i18n';
-import {feedingsCsv, growthCsv, momentsCsv, saveTextFile} from '@/lib/export';
+import {eventsCsv, feedingsCsv, growthCsv, momentsCsv, saveTextFile} from '@/lib/export';
+import {byNewestEvent, fetchEvents, isMissingTable, parseEventForm, type EventForm} from '@/lib/events';
 import {toDisplay, useUnit} from '@/lib/units';
+import {metricInfo, type GrowthMetric} from '@/lib/who-growth';
+import {
+  getGrowthUnit,
+  growthFromDisplay,
+  growthLimits,
+  temperatureToDisplay,
+  useGrowthUnit,
+} from '@/lib/growth-units';
 import {getError} from '@/lib/errors';
 import {byNewest, fetchFeedings, parseFeedForm, time, windowStart, type FeedForm} from '@/lib/feedings';
 import {parseBabyForm, type BabyForm} from '@/lib/baby-form';
@@ -39,6 +50,7 @@ import HistoryCalendar from './HistoryCalendar';
 import TodayView from './TodayView';
 import TrendView from './TrendView';
 import FeedSheet from './FeedSheet';
+import EventSheet from './EventSheet';
 import SettingsSheet from './SettingsSheet';
 import FamilyPage from './FamilyPage';
 import Onboarding from './Onboarding';
@@ -66,6 +78,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   // Subscribed only so every view re-renders when the language or volume unit changes.
   useLang();
   useUnit();
+  useGrowthUnit();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -79,6 +92,11 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
   const [feedings, setFeedings] = useState<Feeding[]>([]);
   const [measurements, setMeasurements] = useState<GrowthMeasurement[]>([]);
   const [moments, setMoments] = useState<Moment[]>([]);
+  const [events, setEvents] = useState<BabyEvent[]>([]);
+  // True until the baby_events migration has been run on this database.
+  const [eventsUnavailable, setEventsUnavailable] = useState(false);
+  const [eventForm, setEventForm] = useState<EventForm | null>(null);
+  const [eventEditing, setEventEditing] = useState<string | null>(null);
   // Signed URLs for moment photos, by storage path.
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   // True until the baby_moments migration has been run on this database.
@@ -136,6 +154,11 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     [],
   );
   const dropMoment = useCallback((id: string) => setMoments(list => list.filter(m => m.id !== id)), []);
+  const upsertEvent = useCallback(
+    (row: BabyEvent) => setEvents(list => [...list.filter(e => e.id !== row.id), row].sort(byNewestEvent)),
+    [],
+  );
+  const dropEvent = useCallback((id: string) => setEvents(list => list.filter(e => e.id !== id)), []);
   const {
     pendingOps,
     queueOp,
@@ -280,6 +303,30 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     setMomentsUnavailable(false);
     setMoments((data ?? []) as Moment[]);
   }, [familyId]);
+  /** Care events from `since` on, merged with older months already loaded. Quiet until the table exists. */
+  const loadEvents = useCallback(
+    async (since: string | null, keepOlder: boolean) => {
+      if (!familyId) return;
+      try {
+        const rows = await fetchEvents(familyId, since);
+        setEventsUnavailable(false);
+        setEvents(list =>
+          [
+            ...(keepOlder && since ? list.filter(e => time(e.started_at) < time(since)) : []),
+            ...rows,
+          ].sort(byNewestEvent),
+        );
+      } catch (e) {
+        if (isMissingTable(e as {code?: string})) {
+          setEventsUnavailable(true);
+          setEvents([]);
+          return;
+        }
+        throw e;
+      }
+    },
+    [familyId],
+  );
   // Re-fetch the loaded window (keeps any older months the history page already pulled in).
   const refreshFeedings = useCallback(async () => {
     if (!familyId) return;
@@ -303,6 +350,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         loadMembers(),
         loadGrowth(),
         loadMoments(),
+        loadEvents(since, false),
       ]);
       loadedSince.current = since;
       setFeedings(mergePending(rows, pendingOps()).sort(byNewest));
@@ -314,7 +362,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setLoading(false);
       setLoadedFamilyId(familyId);
     }
-  }, [familyId, loadBabies, loadMembers, loadGrowth, loadMoments, pendingOps, showError]);
+  }, [familyId, loadBabies, loadMembers, loadGrowth, loadMoments, loadEvents, pendingOps, showError]);
   const ensureFeedingsSince = useCallback(
     async (from: Date) => {
       const loaded = loadedSince.current;
@@ -322,7 +370,14 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       const since = from.toISOString();
       setLoadingOlder(true);
       try {
-        const rows = await fetchFeedings(familyId, since, loaded);
+        const [rows, older] = await Promise.all([
+          fetchFeedings(familyId, since, loaded),
+          eventsUnavailable ? Promise.resolve([] as BabyEvent[]) : fetchEvents(familyId, since, loaded),
+        ]);
+        setEvents(list => {
+          const ids = new Set(list.map(e => e.id));
+          return [...list, ...older.filter(e => !ids.has(e.id))].sort(byNewestEvent);
+        });
         loadedSince.current =
           loadedSince.current && time(loadedSince.current) < time(since) ? loadedSince.current : since;
         setFeedings(list => {
@@ -335,11 +390,11 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         setLoadingOlder(false);
       }
     },
-    [familyId, showError],
+    [familyId, showError, eventsUnavailable],
   );
   const refreshVisible = useCallback(async () => {
-    await Promise.all([refreshFeedings(), loadGrowth(), loadMoments()]);
-  }, [refreshFeedings, loadGrowth, loadMoments]);
+    await Promise.all([refreshFeedings(), loadGrowth(), loadMoments(), loadEvents(loadedSince.current, true)]);
+  }, [refreshFeedings, loadGrowth, loadMoments, loadEvents]);
 
   useEffect(() => {
     if (user) {
@@ -361,6 +416,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setFeedings([]);
       setMeasurements([]);
       setMoments([]);
+      setEvents([]);
       setLoadedFamilyId('');
     }
   }, [familyId, loadData]);
@@ -375,10 +431,12 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     dropGrowth,
     upsertMoment,
     dropMoment,
+    upsertEvent,
+    dropEvent,
     babiesChanged,
     membersChanged,
     reconnected,
-  });
+  }, !eventsUnavailable);
 
   // Sign any moment photos we don't have a URL for yet (signed URLs last an hour; reloads re-sign).
   useEffect(() => {
@@ -709,7 +767,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
     const userId = user.id;
     let saved = false;
     await action(async () => {
-      const parse = (raw: string, min: number, max: number, label: string) => {
+      const number = (raw: string, min: number, max: number, label: string) => {
         const text = raw.trim();
         if (!text) return null;
         const value = Number(text);
@@ -722,9 +780,22 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
           );
         return value;
       };
-      const weight = parse(values.weight, 0.5, 80, tr('体重（kg）', 'Weight (kg)'));
-      const length = parse(values.length, 20, 130, tr('身长（cm）', 'Length (cm)'));
-      const head = parse(values.head, 18, 60, tr('头围（cm）', 'Head circumference (cm)'));
+      const named = (label: string, unit: string) => tr(`${label}（${unit}）`, `${label} (${unit})`);
+      // Values are typed in the device's growth unit and saved as kg / cm.
+      const parse = (metric: GrowthMetric, raw: string) => {
+        const {min, max} = growthLimits(metric);
+        const value = number(raw, min, max, named(metricInfo[metric].label, metricInfo[metric].unit));
+        return value === null ? null : growthFromDisplay(metric, value);
+      };
+      let weight: number | null;
+      if (getGrowthUnit() === 'us' && values.ounces.trim()) {
+        const label = metricInfo.weight.label;
+        const lb = number(values.weight || '0', 0, growthLimits('weight').max, named(label, 'lb')) ?? 0;
+        const oz = number(values.ounces, 0, 15.99, named(label, 'oz')) ?? 0;
+        weight = parse('weight', String(lb + oz / 16));
+      } else weight = parse('weight', values.weight);
+      const length = parse('length', values.length);
+      const head = parse('head', values.head);
       if (weight === null && length === null && head === null)
         throw new Error(
           tr(
@@ -773,6 +844,109 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       if (e) throw e;
       dropGrowth(item.id);
       setSuccess(tr('生长记录已删除。', 'Growth record deleted.'));
+    });
+  }
+  function startEvent(baby: Baby, kind: EventKind) {
+    const nowLocal = datetimeLocal(new Date().toISOString());
+    setEventEditing(null);
+    setEventForm({
+      baby_id: baby.id,
+      kind,
+      started_at: nowLocal,
+      ongoing: true,
+      ended_at: nowLocal,
+      duration: '',
+      diaper: null,
+      temperature: '',
+      note: '',
+    });
+    setError('');
+  }
+  function editEvent(item: BabyEvent) {
+    const minutes = item.ended_at ? Math.round((time(item.ended_at) - time(item.started_at)) / 60000) : 0;
+    setEventEditing(item.id);
+    setEventForm({
+      baby_id: item.baby_id,
+      kind: item.kind,
+      started_at: datetimeLocal(item.started_at),
+      ongoing: item.kind === 'sleep' && !item.ended_at,
+      ended_at: datetimeLocal(item.ended_at ?? new Date().toISOString()),
+      duration: item.kind === 'tummy' && minutes ? String(minutes) : '',
+      diaper: item.diaper,
+      temperature:
+        item.temperature_c === null ? '' : String(temperatureToDisplay(Number(item.temperature_c))),
+      note: item.note ?? '',
+    });
+    setError('');
+  }
+  async function saveEvent() {
+    if (!eventForm || !user || !familyId) return;
+    await action(async () => {
+      const fields = parseEventForm(
+        eventForm,
+        activeBabies.map(b => b.id),
+      );
+      const payload = {...fields, baby_id: eventForm.baby_id, family_id: familyId};
+      const sb = supabase();
+      const res = eventEditing
+        ? await sb
+            .from('baby_events')
+            .update(payload)
+            .eq('id', eventEditing)
+            .eq('family_id', familyId)
+            .select()
+            .single()
+        : await sb
+            .from('baby_events')
+            .insert({...payload, created_by: user.id})
+            .select()
+            .single();
+      if (res.error?.code === '23505')
+        throw new Error(
+          tr(
+            '宝宝已经有一段正在进行的睡眠，请先在首页点“醒了”。',
+            'A sleep is already running for this baby. Tap “Woke up” on Today first.',
+          ),
+        );
+      if (res.error && isNetworkError(res.error))
+        throw new Error(tr('保存需要联网，请稍后再试。', 'Saving this needs a connection. Please try again.'));
+      if (res.error) throw res.error;
+      upsertEvent(res.data as BabyEvent);
+      setEventForm(null);
+      setEventEditing(null);
+    });
+  }
+  /** Ends a running sleep now. */
+  async function wakeUp(item: BabyEvent) {
+    await action(async () => {
+      const {data, error: e} = await supabase()
+        .from('baby_events')
+        .update({ended_at: new Date().toISOString()})
+        .eq('id', item.id)
+        .eq('family_id', familyId)
+        .select()
+        .single();
+      if (e && isNetworkError(e))
+        throw new Error(tr('需要联网，请稍后再试。', 'This needs a connection. Please try again.'));
+      if (e) throw e;
+      upsertEvent(data as BabyEvent);
+    });
+  }
+  async function removeEvent() {
+    if (!eventEditing) return;
+    if (!window.confirm(tr('删除这条记录？删除后无法恢复。', 'Delete this record? This can’t be undone.')))
+      return;
+    await action(async () => {
+      const {error: e} = await supabase()
+        .from('baby_events')
+        .delete()
+        .eq('id', eventEditing)
+        .eq('family_id', familyId);
+      if (e) throw e;
+      dropEvent(eventEditing);
+      setEventForm(null);
+      setEventEditing(null);
+      setSuccess(tr('记录已删除。', 'Record deleted.'));
     });
   }
   const stamp = () => dayKey(new Date());
@@ -945,6 +1119,16 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
       setSuccess(tr(`已导出 ${moments.length} 条成长时刻。`, `Exported ${moments.length} moments.`));
     });
   }
+  async function exportEvents() {
+    await action(async () => {
+      const rows = await fetchEvents(familyId, null);
+      await saveTextFile(
+        tr(`日常记录-${stamp()}.csv`, `care-log-${stamp()}.csv`),
+        eventsCsv(rows, babies, recorderName),
+      );
+      setSuccess(tr(`已导出 ${rows.length} 条日常记录。`, `Exported ${rows.length} care records.`));
+    });
+  }
   async function joinFamily() {
     if (!inviteCode) return;
     await action(async () => {
@@ -998,6 +1182,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         loadGrowth(),
         loadMoments(),
         refreshFeedings(),
+        loadEvents(loadedSince.current, true),
       ]);
       setNow(Date.now());
     } catch (e) {
@@ -1045,7 +1230,15 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
         onJoin={joinFamilyByCode}
       />
     );
-  const sheetOpen = !!(form || avatarDraft || deleteId || momentDraft || visitDraft || guideBabyId);
+  const sheetOpen = !!(
+    form ||
+    eventForm ||
+    avatarDraft ||
+    deleteId ||
+    momentDraft ||
+    visitDraft ||
+    guideBabyId
+  );
   const switchView = (view: Page) => {
     rememberView(view);
     router.replace(`/${view}`);
@@ -1078,12 +1271,16 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
                 recorderName={recorderName}
                 onStartFeed={startFeed}
                 onEditFeed={editFeed}
+                events={eventsUnavailable ? null : events}
+                onStartEvent={startEvent}
+                onEditEvent={editEvent}
+                onWakeUp={wakeUp}
                 onAddBaby={() => router.push('/family')}
               />
             )}
             {(page === 'history' || page === 'trends') && (
               <>
-                <PageIntro title={tr('喂养记录', 'Feeding records')} />
+                <PageIntro title={tr('记录', 'Records')} />
                 <Segmented
                   tabs
                   label={tr('历史或趋势', 'History or trends')}
@@ -1100,7 +1297,10 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
               <HistoryCalendar
                 babies={babies}
                 feedings={feedings}
+                events={events}
+                now={now}
                 onSelect={editFeed}
+                onSelectEvent={editEvent}
                 recorderName={recorderName}
                 onMonthChange={ensureFeedingsSince}
                 loadingOlder={loadingOlder}
@@ -1216,6 +1416,22 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
             setDeleteId={setDeleteId}
           />
         )}
+        {eventForm && (
+          <EventSheet
+            form={eventForm}
+            setForm={form => {
+              setEventForm(form);
+              if (typeof form !== 'function' && !form) setEventEditing(null);
+            }}
+            editing={eventEditing ? events.find(e => e.id === eventEditing) : undefined}
+            babies={babies}
+            busy={busy}
+            error={error}
+            recorderName={recorderName}
+            onSave={saveEvent}
+            onDelete={removeEvent}
+          />
+        )}
         {settingsOpen && (
           <SettingsSheet
             email={user?.email ?? null}
@@ -1223,6 +1439,7 @@ export default function App({page, inviteCode}: {page: Page; inviteCode?: string
             onExportFeedings={exportFeedings}
             onExportGrowth={exportGrowth}
             onExportMoments={exportMoments}
+            onExportEvents={eventsUnavailable ? undefined : exportEvents}
             onSignOut={signOut}
             onDeleteAccount={deleteAccount}
             onClose={() => setSettingsOpen(false)}

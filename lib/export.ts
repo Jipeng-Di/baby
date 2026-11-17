@@ -1,11 +1,16 @@
 import {datetimeLocal} from './dates';
 import {tr} from './i18n';
 import {guideItem, say} from './guide';
+import {getGrowthUnit, growthToDisplay, growthUnitLabel} from './growth-units';
+import type {GrowthMetric} from './who-growth';
+import {diaperLabel, eventLabel} from './events';
+import {temperatureToDisplay, temperatureUnit} from './growth-units';
 import {
   babyName,
   momentKindLabel,
   typeLabels,
   type Baby,
+  type BabyEvent,
   type Feeding,
   type GrowthMeasurement,
   type Moment,
@@ -81,14 +86,20 @@ export function feedingsCsv(rows: Feeding[], babies: Baby[], recorder: Recorder)
 }
 export function growthCsv(rows: GrowthMeasurement[], babies: Baby[], recorder: Recorder) {
   const names = babyNames(babies);
-  const num = (v: number | null | undefined) => (v === null || v === undefined ? null : Number(v));
+  // Exported in the device's growth unit; pounds as a decimal (e.g. 13.38) so spreadsheets can chart them.
+  const num = (metric: GrowthMetric, v: number | null | undefined) => {
+    if (v === null || v === undefined) return null;
+    const value = growthToDisplay(metric, Number(v));
+    return getGrowthUnit() === 'metric' ? value : Math.round(value * 100) / 100;
+  };
+  const u = (metric: GrowthMetric) => growthUnitLabel(metric);
   return toCsv([
     [
       tr('测量日期', 'Date measured'),
       tr('宝宝', 'Baby'),
-      tr('体重(kg)', 'Weight (kg)'),
-      tr('身长(cm)', 'Length (cm)'),
-      tr('头围(cm)', 'Head (cm)'),
+      tr(`体重(${u('weight')})`, `Weight (${u('weight')})`),
+      tr(`身长(${u('length')})`, `Length (${u('length')})`),
+      tr(`头围(${u('head')})`, `Head (${u('head')})`),
       tr('备注', 'Note'),
       tr('记录人', 'Logged by'),
     ],
@@ -97,9 +108,9 @@ export function growthCsv(rows: GrowthMeasurement[], babies: Baby[], recorder: R
       .map(m => [
         m.measured_at,
         names.get(m.baby_id) ?? '',
-        num(m.weight_kg),
-        num(m.length_cm),
-        num(m.head_cm),
+        num('weight', m.weight_kg),
+        num('length', m.length_cm),
+        num('head', m.head_cm),
         m.note,
         recorder(m.recorded_by),
       ]),
@@ -129,5 +140,35 @@ export function momentsCsv(rows: Moment[], babies: Baby[], recorder: Recorder) {
           recorder(m.recorded_by),
         ];
       }),
+  ]);
+}
+
+export function eventsCsv(rows: BabyEvent[], babies: Baby[], recorder: Recorder) {
+  const names = babyNames(babies);
+  return toCsv([
+    [
+      tr('开始时间', 'Start'),
+      tr('结束时间', 'End'),
+      tr('宝宝', 'Baby'),
+      tr('类型', 'Type'),
+      tr('时长(分钟)', 'Duration (min)'),
+      tr('尿布', 'Diaper'),
+      tr(`体温(${temperatureUnit()})`, `Temperature (${temperatureUnit()})`),
+      tr('备注', 'Note'),
+      tr('记录人', 'Logged by'),
+    ],
+    ...[...rows]
+      .sort((a, b) => a.started_at.localeCompare(b.started_at))
+      .map(e => [
+        datetimeLocal(e.started_at).replace('T', ' '),
+        e.ended_at ? datetimeLocal(e.ended_at).replace('T', ' ') : null,
+        names.get(e.baby_id) ?? '',
+        eventLabel[e.kind](),
+        e.ended_at ? Math.round((Date.parse(e.ended_at) - Date.parse(e.started_at)) / 60000) : null,
+        e.diaper ? diaperLabel[e.diaper]() : null,
+        e.temperature_c === null ? null : temperatureToDisplay(Number(e.temperature_c)),
+        e.note,
+        recorder(e.created_by),
+      ]),
   ]);
 }

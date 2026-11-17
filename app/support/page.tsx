@@ -36,8 +36,8 @@ export default function SupportPage() {
         <p>
           Yes. Feeds you log offline are kept on the device and sync automatically when you’re back online.
         </p>
-        <p className={q}>Can I switch to ounces or Chinese?</p>
-        <p>Family → Settings → Preferences: language, volume unit (ml or oz) and the vaccine guide region.</p>
+        <p className={q}>Can I switch to ounces, pounds and inches, or Chinese?</p>
+        <p>Family → Settings → Preferences: language, volume unit (ml or oz), measurements (kg, cm and °C, or lb, oz, in and °F) and the vaccine guide region.</p>
         <p className={q}>How do I export my data?</p>
         <p>Family → Settings → Export data. Feedings, growth records and moments download as CSV files.</p>
         <p className={q}>How do I delete my account?</p>
@@ -75,8 +75,8 @@ export default function SupportPage() {
         </p>
         <p className={q}>没有网络能用吗？</p>
         <p>可以。离线时记录的喂奶会保存在本机，联网后自动同步。</p>
-        <p className={q}>怎样切换盎司或中文？</p>
-        <p>家庭 → 设置 → 偏好：可设置语言、奶量单位（ml 或 oz）和疫苗指南地区。</p>
+        <p className={q}>怎样切换盎司、磅、英寸或中文？</p>
+        <p>家庭 → 设置 → 偏好：可设置语言、奶量单位（ml 或 oz）、测量单位（kg、cm 和 °C，或 lb、oz、in 和 °F）和疫苗指南地区。</p>
         <p className={q}>怎样导出数据？</p>
         <p>家庭 → 设置 → 导出数据，喂奶、生长和成长时刻记录会下载为 CSV 文件。</p>
         <p className={q}>怎样删除账号？</p>

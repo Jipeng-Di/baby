@@ -1,4 +1,5 @@
 import {tr} from './i18n';
+import {growthUnitLabel} from './growth-units';
 import type {BabySex} from './types';
 type GrowthStandardRow = readonly [
   month: number,
@@ -410,7 +411,9 @@ export const metricInfo: Record<GrowthMetric, {label: string; unit: string; titl
     get label() {
       return tr('体重', 'Weight');
     },
-    unit: 'kg',
+    get unit() {
+      return growthUnitLabel('weight');
+    },
     get title() {
       return tr('体重年龄百分位', 'Weight-for-age percentile');
     },
@@ -419,7 +422,9 @@ export const metricInfo: Record<GrowthMetric, {label: string; unit: string; titl
     get label() {
       return tr('身长', 'Length');
     },
-    unit: 'cm',
+    get unit() {
+      return growthUnitLabel('length');
+    },
     get title() {
       return tr('身长/身高年龄百分位', 'Length/height-for-age percentile');
     },
@@ -428,7 +433,9 @@ export const metricInfo: Record<GrowthMetric, {label: string; unit: string; titl
     get label() {
       return tr('头围', 'Head');
     },
-    unit: 'cm',
+    get unit() {
+      return growthUnitLabel('head');
+    },
     get title() {
       return tr('头围年龄百分位', 'Head circumference-for-age percentile');
     },

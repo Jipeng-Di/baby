@@ -75,3 +75,20 @@ export type Moment = {
   created_at: string;
   updated_at: string;
 };
+/** Everyday care records next to feedings. Sleep and tummy time have an end; an open sleep is ongoing. */
+export type EventKind = 'sleep' | 'diaper' | 'tummy' | 'bath' | 'medicine' | 'temperature';
+export type DiaperType = 'wet' | 'dirty' | 'both';
+export type BabyEvent = {
+  id: string;
+  baby_id: string;
+  family_id: string;
+  created_by: string;
+  kind: EventKind;
+  started_at: string;
+  ended_at: string | null;
+  diaper: DiaperType | null;
+  temperature_c: number | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};

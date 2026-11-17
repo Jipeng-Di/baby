@@ -30,6 +30,14 @@ import {
 import {dayKey} from '@/lib/dates';
 import {chartPalette, useDarkMode} from '@/lib/theme';
 import {tr, useLang} from '@/lib/i18n';
+import {
+  growthLimits,
+  growthParts,
+  growthText,
+  growthToDisplay,
+  storedGrowthText,
+  useGrowthUnit,
+} from '@/lib/growth-units';
 import {BabyChips, EmptyState, Segmented, card, input, primary} from './ui';
 
 const sexLabels: Record<BabySex, string> = {
@@ -46,7 +54,9 @@ const column: Record<GrowthMetric, 'weight_kg' | 'length_cm' | 'head_cm'> = {
   length: 'length_cm',
   head: 'head_cm',
 };
-export type GrowthValues = {weight: string; length: string; head: string};
+/** What the form holds, in the current unit. `ounces` is only used with US units (pounds + ounces). */
+export type GrowthValues = {weight: string; ounces: string; length: string; head: string};
+const emptyValues: GrowthValues = {weight: '', ounces: '', length: '', head: ''};
 type Props = {
   babies: Baby[];
   measurements: GrowthMeasurement[];
@@ -58,6 +68,7 @@ type Props = {
 };
 type GrowthPoint = {
   month: number;
+  /** In the current display unit (kg, cm, lb or in). */
   value: number;
   date: string;
   percentile: number | null;
@@ -65,11 +76,6 @@ type GrowthPoint = {
 };
 type PointShapeProps = {cx?: number; cy?: number; payload?: GrowthPoint};
 
-function formatGrowthValue(metric: GrowthMetric, value: number) {
-  return metric === 'weight'
-    ? value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
-    : value.toFixed(1).replace(/\.0$/, '');
-}
 function formatAge(months: number) {
   const days = Math.max(1, Math.round(months * 30.4375));
   const mo = months.toFixed(1).replace(/\.0$/, '');
@@ -85,13 +91,16 @@ function summary(item: GrowthMeasurement) {
       const value = valueOf(item, metric);
       return value === null
         ? []
-        : [`${metricInfo[metric].label} ${formatGrowthValue(metric, value)} ${metricInfo[metric].unit}`];
+        : [`${metricInfo[metric].label} ${storedGrowthText(metric, value)}`];
     })
     .join(' · ');
 }
 const shortDate = (date: string) => date.slice(5).replace('-', '/');
-const signed = (metric: GrowthMetric, delta: number) =>
-  `${delta > 0 ? '+' : delta < 0 ? '−' : '±'}${formatGrowthValue(metric, Math.abs(delta))}`;
+/** A change in the current unit with its sign and unit, e.g. "+1 lb 4 oz" or "−0.3 cm". */
+const signed = (metric: GrowthMetric, delta: number) => {
+  const text = growthText(metric, Math.abs(delta));
+  return `${/^0( |$)/.test(text) ? '±' : delta > 0 ? '+' : '−'}${text}`;
+};
 const daysBetween = (a: string, b: string) =>
   Math.round((new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) / 86400000);
 function driftText(drift: GrowthDrift) {
@@ -112,10 +121,12 @@ export default function GrowthView({
   avatarUrls,
 }: Props) {
   const lang = useLang();
+  const growthUnit = useGrowthUnit();
+  const usUnits = growthUnit === 'us';
   const palette = chartPalette(useDarkMode());
   const [babyId, setBabyId] = useState(babies[0]?.id ?? '');
   const [metric, setMetric] = useState<GrowthMetric>('weight');
-  const [values, setValues] = useState<GrowthValues>({weight: '', length: '', head: ''});
+  const [values, setValues] = useState<GrowthValues>(emptyValues);
   const [date, setDate] = useState(dayKey(new Date()));
   const [note, setNote] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -135,6 +146,12 @@ export default function GrowthView({
   useEffect(() => {
     if (!babies.some(b => b.id === babyId)) setBabyId(babies[0]?.id ?? '');
   }, [babies, babyId]);
+  // Numbers typed in one unit mean something else in the other; start the form over when it changes.
+  const [formUnit, setFormUnit] = useState(growthUnit);
+  if (formUnit !== growthUnit) {
+    setFormUnit(growthUnit);
+    setValues(emptyValues);
+  }
   const baby = babies.find(b => b.id === babyId) || babies[0];
   const gestation = baby?.gestational_age_days ?? null;
   const info = metricInfo[metric];
@@ -160,14 +177,16 @@ export default function GrowthView({
         if (month > 60) continue;
         result.push({
           month,
-          value,
+          value: growthToDisplay(metric, value),
           date: m.measured_at,
           percentile: baby.sex ? growthPercentile(metric, baby.sex, month, value) : null,
           note: m.note,
         });
       }
     return {points: result, beforeTerm: skipped};
-  }, [baby, items, metric, gestation]);
+    // growthUnit: values are converted to the current unit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baby, items, metric, gestation, growthUnit]);
   const drifts = useMemo(() => {
     if (!baby?.sex) return [];
     const sex = baby.sex;
@@ -278,13 +297,22 @@ export default function GrowthView({
       baby?.sex
         ? whoGrowthRows(metric, baby.sex, chartMax)
             .filter(row => row.month >= Math.floor(chartMin) && row.month <= Math.ceil(chartEnd))
-            .map(row => ({
-              ...row,
-              outer: [row.p3, row.p97] as [number, number],
-              inner: [row.p15, row.p85] as [number, number],
-            }))
+            .map(({month, ...p}) => {
+              const [p3, p15, p50, p85, p97] = [p.p3, p.p15, p.p50, p.p85, p.p97].map(v =>
+                growthToDisplay(metric, v),
+              );
+              return {
+                month,
+                p3,
+                p50,
+                p97,
+                outer: [p3, p97] as [number, number],
+                inner: [p15, p85] as [number, number],
+              };
+            })
         : [],
-    [baby, metric, chartMax, chartMin, chartEnd],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [baby, metric, chartMax, chartMin, chartEnd, growthUnit],
   );
   const visiblePoints = useMemo(
     () => points.filter(point => point.month >= chartMin && point.month <= chartEnd),
@@ -311,8 +339,9 @@ export default function GrowthView({
   const shown = selectedPoint && points.some(p => p.date === selectedPoint.date) ? selectedPoint : latest;
   const shownIndex = shown ? points.findIndex(p => p.date === shown.date) : -1;
   const previous: GrowthPoint | undefined = shownIndex > 0 ? points[shownIndex - 1] : undefined;
-  const median = shown && baby?.sex ? medianAt(metric, baby.sex, shown.month) : null;
-  const hasValue = !!(values.weight || values.length || values.head);
+  const medianStored = shown && baby?.sex ? medianAt(metric, baby.sex, shown.month) : null;
+  const median = medianStored === null ? null : growthToDisplay(metric, medianStored);
+  const hasValue = !!(values.weight || (usUnits && values.ounces) || values.length || values.head);
   if (!babies.length)
     return (
       <EmptyState
@@ -416,10 +445,12 @@ export default function GrowthView({
             {shown ? (
               <>
                 <div className="mt-4 flex items-end gap-2">
-                  <strong className="text-4xl tracking-tight">
-                    {formatGrowthValue(metric, shown.value)}
-                  </strong>
-                  <span className="pb-1 text-(--muted)">{info.unit}</span>
+                  {growthParts(metric, shown.value).map(([n, unit]) => (
+                    <span key={unit} className="flex items-end gap-1.5">
+                      <strong className="text-4xl tracking-tight">{n}</strong>
+                      <span className="pb-1 text-(--muted)">{unit}</span>
+                    </span>
+                  ))}
                   {shown === latest ? (
                     <span className="mb-1.5 ml-1 rounded-full bg-(--chip) px-2 py-0.5 text-xs font-semibold text-(--muted)">
                       {tr('最新', 'Latest')}
@@ -438,8 +469,8 @@ export default function GrowthView({
                     <dd className="mt-0.5 font-semibold text-(--ink)">
                       {previous
                         ? tr(
-                            `${signed(metric, shown.value - previous.value)} ${info.unit} · ${daysBetween(previous.date, shown.date)} 天`,
-                            `${signed(metric, shown.value - previous.value)} ${info.unit} in ${daysBetween(previous.date, shown.date)} d`,
+                            `${signed(metric, shown.value - previous.value)} · ${daysBetween(previous.date, shown.date)} 天`,
+                            `${signed(metric, shown.value - previous.value)} over ${daysBetween(previous.date, shown.date)} d`,
                           )
                         : tr('第一条记录', 'First record')}
                     </dd>
@@ -449,7 +480,7 @@ export default function GrowthView({
                     <dd className="mt-0.5 font-semibold text-(--ink)">
                       {median === null
                         ? tr('暂无', 'n/a')
-                        : `${signed(metric, shown.value - median)} ${info.unit}`}
+                        : signed(metric, shown.value - median)}
                     </dd>
                   </div>
                 </dl>
@@ -622,8 +653,8 @@ export default function GrowthView({
                           role="button"
                           tabIndex={0}
                           aria-label={tr(
-                            `${payload.date}，${formatGrowthValue(metric, payload.value)}${info.unit}`,
-                            `${payload.date}, ${formatGrowthValue(metric, payload.value)} ${info.unit}`,
+                            `${payload.date}，${growthText(metric, payload.value)}`,
+                            `${payload.date}, ${growthText(metric, payload.value)}`,
                           )}
                           className="cursor-pointer outline-none"
                           onClick={select}
@@ -719,25 +750,78 @@ export default function GrowthView({
             <p className="mt-1 text-sm text-(--muted)">
               {tr('三项不必同时填写，至少填一项。', 'Fill in at least one of the three.')}
             </p>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {metrics.map(k => (
-                <label key={k} className="text-sm font-medium">
-                  {metricInfo[k].label} · {metricInfo[k].unit}
-                  <input
-                    className={`${input} mt-2 px-3`}
-                    type="number"
-                    inputMode="decimal"
-                    enterKeyHint="done"
-                    min={k === 'weight' ? 0.5 : k === 'length' ? 20 : 18}
-                    max={k === 'weight' ? 80 : k === 'length' ? 130 : 60}
-                    step={k === 'weight' ? 0.01 : 0.1}
-                    placeholder={k === 'weight' ? '6.25' : k === 'length' ? '62.5' : '40.5'}
-                    value={values[k]}
-                    onChange={e => setValues(current => ({...current, [k]: e.target.value}))}
-                  />
-                </label>
-              ))}
-            </div>
+            {usUnits ? (
+              // US units: pounds and ounces side by side, then inches.
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <fieldset className="col-span-2 text-sm font-medium">
+                  <legend>{metricInfo.weight.label} · lb + oz</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        ['weight', 'lb', growthLimits('weight').max, 1, '13'],
+                        ['ounces', 'oz', 15.9, 0.1, '6'],
+                      ] as const
+                    ).map(([k, unit, max, step, placeholder]) => (
+                      <label key={k} className="relative block">
+                        <input
+                          className={`${input} px-3 pr-10`}
+                          type="number"
+                          inputMode="decimal"
+                          enterKeyHint="done"
+                          aria-label={`${metricInfo.weight.label} (${unit})`}
+                          min={0}
+                          max={max}
+                          step={step}
+                          placeholder={placeholder}
+                          value={values[k]}
+                          onChange={e => setValues(current => ({...current, [k]: e.target.value}))}
+                        />
+                        <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-(--muted)">
+                          {unit}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                {(['length', 'head'] as const).map(k => (
+                  <label key={k} className="text-sm font-medium">
+                    {metricInfo[k].label} · in
+                    <input
+                      className={`${input} mt-2 px-3`}
+                      type="number"
+                      inputMode="decimal"
+                      enterKeyHint="done"
+                      min={growthLimits(k).min}
+                      max={growthLimits(k).max}
+                      step={0.1}
+                      placeholder={k === 'length' ? '24.5' : '16'}
+                      value={values[k]}
+                      onChange={e => setValues(current => ({...current, [k]: e.target.value}))}
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {metrics.map(k => (
+                  <label key={k} className="text-sm font-medium">
+                    {metricInfo[k].label} · {metricInfo[k].unit}
+                    <input
+                      className={`${input} mt-2 px-3`}
+                      type="number"
+                      inputMode="decimal"
+                      enterKeyHint="done"
+                      min={growthLimits(k).min}
+                      max={growthLimits(k).max}
+                      step={k === 'weight' ? 0.01 : 0.1}
+                      placeholder={k === 'weight' ? '6.25' : k === 'length' ? '62.5' : '40.5'}
+                      value={values[k]}
+                      onChange={e => setValues(current => ({...current, [k]: e.target.value}))}
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="mt-4 grid grid-cols-2 gap-3">
               <label className="text-sm font-medium">
                 {tr('测量日期', 'Date measured')}
@@ -766,7 +850,7 @@ export default function GrowthView({
               disabled={busy || !hasValue || !date}
               onClick={async () => {
                 if (await onAdd(baby, values, date, note)) {
-                  setValues({weight: '', length: '', head: ''});
+                  setValues(emptyValues);
                   setNote('');
                 }
               }}

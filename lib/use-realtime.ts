@@ -1,7 +1,7 @@
 'use client';
 import {useEffect} from 'react';
 import {supabase} from './supabase';
-import type {Feeding, GrowthMeasurement, Moment} from './types';
+import type {BabyEvent, Feeding, GrowthMeasurement, Moment} from './types';
 
 type Row = {id: string};
 type Handlers = {
@@ -11,6 +11,8 @@ type Handlers = {
   dropGrowth: (id: string) => void;
   upsertMoment: (row: Moment) => void;
   dropMoment: (id: string) => void;
+  upsertEvent: (row: BabyEvent) => void;
+  dropEvent: (id: string) => void;
   /** Babies or members changed on another device; reload that list. */
   babiesChanged: () => void;
   membersChanged: () => void;
@@ -19,7 +21,8 @@ type Handlers = {
 };
 
 /** Live sync: other family members' changes arrive without pulling to refresh. */
-export function useFamilyRealtime(familyId: string, handlers: Handlers) {
+/** `withEvents` is false until the baby_events table exists; watching a missing table breaks the channel. */
+export function useFamilyRealtime(familyId: string, handlers: Handlers, withEvents = true) {
   const {
     upsertFeeding,
     dropFeeding,
@@ -27,6 +30,8 @@ export function useFamilyRealtime(familyId: string, handlers: Handlers) {
     dropGrowth,
     upsertMoment,
     dropMoment,
+    upsertEvent,
+    dropEvent,
     babiesChanged,
     membersChanged,
     reconnected,
@@ -49,6 +54,7 @@ export function useFamilyRealtime(familyId: string, handlers: Handlers) {
     watch<Feeding>('feedings', upsertFeeding, dropFeeding);
     watch<GrowthMeasurement>('growth_measurements', upsertGrowth, dropGrowth);
     watch<Moment>('baby_moments', upsertMoment, dropMoment);
+    if (withEvents) watch<BabyEvent>('baby_events', upsertEvent, dropEvent);
     channel
       .on('postgres_changes', {event: '*', schema: 'public', table: 'babies', filter}, babiesChanged)
       .on('postgres_changes', {event: '*', schema: 'public', table: 'family_members', filter}, membersChanged)
@@ -62,12 +68,15 @@ export function useFamilyRealtime(familyId: string, handlers: Handlers) {
     };
   }, [
     familyId,
+    withEvents,
     upsertFeeding,
     dropFeeding,
     upsertGrowth,
     dropGrowth,
     upsertMoment,
     dropMoment,
+    upsertEvent,
+    dropEvent,
     babiesChanged,
     membersChanged,
     reconnected,

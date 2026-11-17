@@ -183,88 +183,102 @@ export default function WeatherCard({now}: {now: number}) {
     );
   return (
     <section
-      className="relative overflow-hidden rounded-[22px] border border-(--rim)/90 bg-gradient-to-br from-(--brand-pale) via-(--surface-2) to-(--warm-pale) px-4 py-2.5 shadow-[0_14px_34px_rgba(31,67,52,.08)]"
+      className="relative overflow-hidden rounded-[22px] border border-(--rim)/90 bg-gradient-to-br from-(--brand-pale) via-(--surface-2) to-(--warm-pale) px-3.5 py-2.5 shadow-[0_14px_34px_rgba(31,67,52,.08)]"
       aria-label={tr('今日天气', 'Today’s weather')}
     >
       <span className="absolute -right-5 -top-8 h-24 w-24 rounded-full bg-(--surface)/50" />
-      <div className="relative flex items-center justify-end gap-3 text-xs font-medium text-(--muted)">
-        {weather && (
-          <span className="-my-1.5 -mr-1.5 flex min-w-0 items-center gap-1">
-            {weather.place && (
-              <>
-                <MapPin size={12} className="shrink-0" />
-                <span className="truncate">{weather.place}</span>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              disabled={status === 'loading'}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-(--soft)"
-              aria-label={tr('刷新天气', 'Refresh weather')}
-            >
-              {status === 'loading' ? (
-                <LoaderCircle size={13} className="animate-spin" />
-              ) : (
-                <RefreshCw size={13} />
-              )}
-            </button>
-          </span>
-        )}
-      </div>
       {weather ? (
         (() => {
           const {text, Icon} = describe(weather.code, weather.isDay);
+          // Each stat is an icon, a value and a small label underneath, in equal columns.
+          const stats: [typeof Droplets, string, string][] = [
+            [Droplets, `${Math.round(weather.humidity)}%`, tr('湿度', 'Humidity')],
+            [
+              Wind,
+              `${Math.round(fahrenheit ? weather.wind / 1.609 : weather.wind)} ${fahrenheit ? 'mph' : 'km/h'}`,
+              tr('风速', 'Wind'),
+            ],
+            ...(weather.rain !== null
+              ? [
+                  [Umbrella, `${Math.round(weather.rain)}%`, tr('降水', 'Rain')] as [
+                    typeof Droplets,
+                    string,
+                    string,
+                  ],
+                ]
+              : []),
+            ...(weather.uv !== null
+              ? [
+                  [Sun, String(Math.round(weather.uv)), tr('紫外线', 'UV')] as [
+                    typeof Droplets,
+                    string,
+                    string,
+                  ],
+                ]
+              : []),
+          ];
           return (
             <>
-              <div className="relative mt-1 flex items-center gap-2.5">
-                <Icon size={30} strokeWidth={1.6} className="shrink-0 text-(--brand)" />
+              <div className="relative flex items-center gap-2">
+                <Icon size={28} strokeWidth={1.6} className="shrink-0 text-(--brand)" />
                 <button
                   type="button"
                   onClick={toggleUnit}
-                  className="flex items-start leading-none"
+                  className="flex shrink-0 items-start leading-none"
                   aria-label={tr(
                     `当前 ${deg(weather.temp)} 度，点按切换${fahrenheit ? '摄氏' : '华氏'}`,
                     `Now ${deg(weather.temp)} degrees. Tap to switch to ${fahrenheit ? 'Celsius' : 'Fahrenheit'}`,
                   )}
                 >
-                  <strong className="text-[30px] font-semibold tracking-tight text-(--ink)">
+                  <strong className="text-[26px] font-semibold tracking-tight text-(--ink)">
                     {deg(weather.temp)}
                   </strong>
-                  <span className="mt-0.5 text-sm font-semibold text-(--muted)">
+                  <span className="mt-0.5 text-xs font-semibold text-(--muted)">
                     °{fahrenheit ? 'F' : 'C'}
                   </span>
                 </button>
-                <div className="ml-auto text-right leading-tight">
-                  <p className="text-[15px] font-semibold text-(--ink)">{text}</p>
-                  <p className="text-xs text-(--muted)">
+                <div className="ml-1 min-w-0 flex-1 leading-tight">
+                  <p className="truncate text-sm font-semibold text-(--ink)">{text}</p>
+                  <p className="truncate text-[11px] text-(--muted)">
                     {deg(weather.max)}° / {deg(weather.min)}° · {tr('体感', 'Feels')} {deg(weather.feels)}°
                   </p>
                 </div>
+                <div className="-mr-1.5 flex max-w-[42%] shrink-0 items-center gap-0.5 self-start text-[11px] font-medium text-(--muted)">
+                  {weather.place && (
+                    <>
+                      <MapPin size={11} className="shrink-0" />
+                      <span className="truncate">{weather.place}</span>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void refresh()}
+                    disabled={status === 'loading'}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-(--soft)"
+                    aria-label={tr('刷新天气', 'Refresh weather')}
+                  >
+                    {status === 'loading' ? (
+                      <LoaderCircle size={13} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={13} />
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="relative mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-(--ink-2)">
-                <span className="flex items-center gap-1">
-                  <Droplets size={12} className="text-(--soft)" />
-                  {tr('湿度', 'Humidity')} {Math.round(weather.humidity)}%
-                </span>
-                <span className="flex items-center gap-1">
-                  <Wind size={12} className="text-(--soft)" />
-                  {tr('风', 'Wind')} {Math.round(fahrenheit ? weather.wind / 1.609 : weather.wind)}{' '}
-                  {fahrenheit ? 'mph' : 'km/h'}
-                </span>
-                {weather.rain !== null && (
-                  <span className="flex items-center gap-1">
-                    <Umbrella size={12} className="text-(--soft)" />
-                    {tr('降水', 'Rain')} {Math.round(weather.rain)}%
-                  </span>
-                )}
-                {weather.uv !== null && (
-                  <span className="flex items-center gap-1">
-                    <Sun size={12} className="text-(--soft)" />
-                    {tr('紫外线', 'UV')} {Math.round(weather.uv)}
-                  </span>
-                )}
-              </div>
+              <dl
+                className="relative mt-2 grid gap-1.5"
+                style={{gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))`}}
+              >
+                {stats.map(([StatIcon, value, label]) => (
+                  <div key={label} className="flex flex-col-reverse rounded-xl bg-(--surface)/55 px-1 py-1 text-center">
+                    <dt className="text-[10px] leading-tight text-(--soft)">{label}</dt>
+                    <dd className="flex items-center justify-center gap-1 text-xs font-semibold text-(--ink-2)">
+                      <StatIcon size={11} className="shrink-0 text-(--soft)" />
+                      <span className="truncate">{value}</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
               {status === 'denied' && (
                 <p className="relative mt-2 text-xs text-(--muted)">
                   {tr(
@@ -277,7 +291,7 @@ export default function WeatherCard({now}: {now: number}) {
           );
         })()
       ) : (
-        <div className="relative mt-3">
+        <div className="relative">
           {status === 'loading' ? (
             <p className="flex items-center gap-2 py-3 text-(--muted)">
               <LoaderCircle size={18} className="animate-spin" />

@@ -1,10 +1,22 @@
 'use client';
 import {useState} from 'react';
 import ConfirmDialog from './ConfirmDialog';
-import {Check, ChevronDown, Download, Languages, LogOut, Milk, Stethoscope, UserRound, X} from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  Download,
+  Languages,
+  LogOut,
+  Milk,
+  Ruler,
+  Stethoscope,
+  UserRound,
+  X,
+} from 'lucide-react';
 import {languages, setLang, tr, useLang} from '@/lib/i18n';
 import {setUnit, useUnit, volumeUnits} from '@/lib/units';
 import {regions, setRegion, useRegion} from '@/lib/region';
+import {growthUnits, setGrowthUnit, useGrowthUnit} from '@/lib/growth-units';
 
 const SITE = 'https://baby-feeding-three.vercel.app';
 
@@ -105,6 +117,7 @@ export default function SettingsSheet({
   onExportFeedings,
   onExportGrowth,
   onExportMoments,
+  onExportEvents,
   onSignOut,
   onDeleteAccount,
   onClose,
@@ -115,6 +128,8 @@ export default function SettingsSheet({
   onExportFeedings: () => Promise<void>;
   onExportGrowth: () => Promise<void>;
   onExportMoments: () => Promise<void>;
+  /** Missing until the care-log table exists. */
+  onExportEvents?: () => Promise<void>;
   onSignOut: () => void;
   onDeleteAccount: () => Promise<void>;
   onClose: () => void;
@@ -122,7 +137,8 @@ export default function SettingsSheet({
   const lang = useLang();
   const unit = useUnit();
   const region = useRegion();
-  type Section = 'lang' | 'unit' | 'region' | 'export';
+  const growthUnit = useGrowthUnit();
+  type Section = 'lang' | 'unit' | 'growth' | 'region' | 'export';
   const [open, setOpen] = useState<Section | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const toggle = (key: Section) => () => setOpen(current => (current === key ? null : key));
@@ -130,6 +146,9 @@ export default function SettingsSheet({
     [tr('喝奶记录', 'Feedings'), onExportFeedings],
     [tr('生长记录', 'Growth records'), onExportGrowth],
     [tr('成长时刻（里程碑、疫苗、体检）', 'Moments (milestones, vaccines, checkups)'), onExportMoments],
+    ...(onExportEvents
+      ? [[tr('日常记录（睡眠、尿布等）', 'Care log (sleep, diapers and more)'), onExportEvents] as [string, () => Promise<void>]]
+      : []),
   ];
   return (
     <div
@@ -186,6 +205,19 @@ export default function SettingsSheet({
             open={open === 'unit'}
             onToggle={toggle('unit')}
             onChange={setUnit}
+          />
+          <Preference
+            icon={Ruler}
+            label={tr('测量单位', 'Measurements')}
+            note={tr(
+              '体重、身长、头围和体温的显示与输入单位。只对这台设备生效，记录统一按公制保存。',
+              'For weight, length, head size and temperature on this device only. Records are stored in metric.',
+            )}
+            value={growthUnit}
+            options={growthUnits.map(o => ({value: o.value, label: o.label()}))}
+            open={open === 'growth'}
+            onToggle={toggle('growth')}
+            onChange={setGrowthUnit}
           />
           <Preference
             icon={Stethoscope}
